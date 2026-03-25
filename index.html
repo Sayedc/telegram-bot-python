@@ -1,52 +1,117 @@
 <!DOCTYPE html>
-<html>
+<html lang="ar">
 <head>
-    <title>SK Downloader</title>
-    <style>
-        body {
-            background: #0f172a;
-            color: white;
-            font-family: Arial;
-            text-align: center;
-            padding-top: 100px;
-        }
-        input {
-            width: 300px;
-            padding: 10px;
-            border-radius: 10px;
-            border: none;
-        }
-        button {
-            padding: 10px 20px;
-            border-radius: 10px;
-            border: none;
-            background: #22c55e;
-            color: white;
-            cursor: pointer;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SK Downloader</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.container {
+    text-align: center;
+    background: #111827;
+    padding: 30px;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 400px;
+}
+
+h1 {
+    margin-bottom: 20px;
+}
+
+input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    margin-bottom: 15px;
+}
+
+button {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    background: #22c55e;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.progress {
+    margin-top: 15px;
+    height: 8px;
+    background: #374151;
+    border-radius: 10px;
+    overflow: hidden;
+    display: none;
+}
+
+.progress-bar {
+    height: 100%;
+    width: 0%;
+    background: #22c55e;
+    transition: 0.3s;
+}
+
+.result {
+    margin-top: 15px;
+}
+</style>
 </head>
+
 <body>
 
-<h1>🔥 SK Downloader</h1>
+<div class="container">
+    <h1>🔥 SK Downloader</h1>
 
-<input id="url" placeholder="حط اللينك هنا">
-<br><br>
+    <input id="url" placeholder="حط اللينك هنا">
 
-<button onclick="download()">تحميل</button>
+    <button onclick="startDownload()">تحميل</button>
 
-<p id="result"></p>
+    <div class="progress" id="progress">
+        <div class="progress-bar" id="bar"></div>
+    </div>
+
+    <div class="result" id="result"></div>
+</div>
 
 <script>
-function download() {
+function startDownload() {
     let url = document.getElementById("url").value;
+    let bar = document.getElementById("bar");
+    let progress = document.getElementById("progress");
+
+    progress.style.display = "block";
+    bar.style.width = "0%";
+
+    let fakeProgress = 0;
+
+    let interval = setInterval(() => {
+        fakeProgress += 10;
+        bar.style.width = fakeProgress + "%";
+        if (fakeProgress >= 90) clearInterval(interval);
+    }, 300);
 
     fetch(`/download?url=${encodeURIComponent(url)}`)
     .then(res => res.json())
     .then(data => {
+        bar.style.width = "100%";
+
         if (data.status === "done") {
             document.getElementById("result").innerHTML =
-                "✅ تم التحميل على السيرفر 🎉";
+                "✅ تم التحميل 🎉<br><br><b>📂 الملف على السيرفر</b>";
         } else {
             document.getElementById("result").innerHTML =
                 "❌ حصل خطأ";
