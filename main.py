@@ -33,4 +33,5 @@ def handle_message(message):
     else:
         bot.reply_to(message, "ابعت لينك فيديو بس 🎥")
 
+bot.remove_webhook()
 bot.infinity_polling()
