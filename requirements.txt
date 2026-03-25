@@ -2,3 +2,5 @@ python-telegram-bot==20.7
 yt-dlp
 ffmpeg-python
 lyricsgenius
+fastapi
+uvicorn
