@@ -11,4 +11,8 @@ COPY pyproject.toml .
 # Install dependencies
 RUN uv sync --no-dev
 
-# Copy
+# Copy project files
+COPY . .
+
+# Run the bot
+CMD ["python", "main.py"]
