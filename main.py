@@ -1,113 +1,129 @@
 import os
 import yt_dlp
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ContextTypes
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# 🎬 Start
+# تخزين بيانات المستخدم
+user_data_store = {}
+
+# 🎬 START
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🔥 أهلاً بيك يا نجم!\n\n"
-        "ابعت لينك فيديو أو اسم أغنية وأنا أظبطهالك 😎"
-    )
+    await update.message.reply_text("🔥 أهلاً بيك يا نجم!\nابعتلي اسم أغنية أو لينك وأنا أظبطهالك 😎")
 
-# 🔍 تحميل البيانات
-def get_info(query):
-    ydl_opts = {
-        'quiet': True,
-        'format': 'best'
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(query, download=False)
-    return info
-
-# 📩 استقبال الرسالة
+# 🔍 البحث
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
+    chat_id = update.message.chat_id
 
-    await update.message.reply_text("🔎 بدورلك على الطلب...")
+    msg = await update.message.reply_text("🔎 بدورلك... استنى بس متجريش 😂")
 
     try:
-        info = get_info(f"ytsearch1:{text}" if "http" not in text else text)
+        with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
+            info = ydl.extract_info(f"ytsearch3:{text}", download=False)
+            results = info['entries']
 
-        if "entries" in info:
-            info = info["entries"][0]
+        user_data_store[chat_id] = {"results": results}
 
-        context.user_data["url"] = info["webpage_url"]
+        buttons = []
+        for i, video in enumerate(results):
+            buttons.append([InlineKeyboardButton(video['title'][:40], callback_data=f"select_{i}")])
 
-        keyboard = [
-            [InlineKeyboardButton("⚡ 360p", callback_data="360")],
-            [InlineKeyboardButton("🔥 720p", callback_data="720")],
-            [InlineKeyboardButton("💎 HD", callback_data="best")],
-            [InlineKeyboardButton("🎧 صوت فقط", callback_data="audio")]
-        ]
+        buttons.append([InlineKeyboardButton("❌ إلغاء", callback_data="cancel")])
 
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
-        await update.message.reply_text(
-            f"🎬 لقيتلك:\n{info['title']}\n\nاختار الجودة 👇",
-            reply_markup=reply_markup
-        )
+        await msg.edit_text("🎯 اختار الفيديو اللي عاجبك:", reply_markup=InlineKeyboardMarkup(buttons))
 
     except:
-        await update.message.reply_text("❌ حصلت مشكلة يا نجم")
+        await msg.edit_text("❌ مش لاقي حاجة خالص 😢")
 
-# ⬇️ تحميل
-async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# 🎯 اختيار فيديو
+async def select_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    choice = query.data
-    url = context.user_data.get("url")
+    chat_id = query.message.chat_id
+    data = query.data
 
-    await query.edit_message_text("⏳ جاري التحميل... استنى شوية")
+    if data == "cancel":
+        await query.edit_message_text("❌ تم الإلغاء يا معلم")
+        return
+
+    index = int(data.split("_")[1])
+    video = user_data_store[chat_id]["results"][index]
+
+    user_data_store[chat_id]["url"] = video['webpage_url']
+
+    keyboard = [
+        [InlineKeyboardButton("⚡ 360p", callback_data="360")],
+        [InlineKeyboardButton("🔥 720p", callback_data="720")],
+        [InlineKeyboardButton("💎 HD", callback_data="best")],
+        [InlineKeyboardButton("🎧 صوت فقط", callback_data="audio")],
+        [InlineKeyboardButton("🔄 نتيجة تانية", callback_data="again")],
+        [InlineKeyboardButton("❌ إلغاء", callback_data="cancel")]
+    ]
 
     try:
-        if choice == "audio":
-            ydl_opts = {
-                'format': 'bestaudio/best',
-                'outtmpl': 'audio.%(ext)s',
-                'postprocessors': [{
-                    'key': 'FFmpegExtractAudio',
-                    'preferredcodec': 'mp3'
-                }]
-            }
-        else:
-            format_map = {
-                "360": "bestvideo[height<=360]+bestaudio/best",
-                "720": "bestvideo[height<=720]+bestaudio/best",
-                "best": "bestvideo+bestaudio/best"
-            }
+        await query.message.reply_photo(video['thumbnail'], caption=f"🎬 {video['title']}")
+    except:
+        pass
 
-            ydl_opts = {
-                'format': format_map[choice],
-                'outtmpl': 'video.%(ext)s',
-                'merge_output_format': 'mp4'
-            }
+    await query.edit_message_text("🎥 اختار الجودة:", reply_markup=InlineKeyboardMarkup(keyboard))
+
+# ⚙️ الأزرار
+async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    chat_id = query.message.chat_id
+    data = query.data
+
+    if data == "cancel":
+        await query.edit_message_text("❌ تم الإلغاء")
+        return
+
+    if data == "again":
+        await query.edit_message_text("🔁 ابعت اسم تاني وأنا أجيبلك 😎")
+        return
+
+    url = user_data_store.get(chat_id, {}).get("url")
+
+    if not url:
+        await query.edit_message_text("❌ حصلت مشكلة")
+        return
+
+    await query.edit_message_text("⏳ بحمل اهو... متقفلش البوت 😂")
+
+    try:
+        if data == "audio":
+            ydl_opts = {'format': 'bestaudio', 'outtmpl': 'audio.%(ext)s'}
+        elif data == "360":
+            ydl_opts = {'format': 'best[height<=360]', 'outtmpl': 'video.mp4'}
+        elif data == "720":
+            ydl_opts = {'format': 'best[height<=720]', 'outtmpl': 'video.mp4'}
+        else:
+            ydl_opts = {'format': 'best', 'outtmpl': 'video.mp4'}
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
 
-        # إرسال الملف
-        for file in os.listdir():
-            if file.endswith(".mp4"):
-                await query.message.reply_video(open(file, "rb"))
-                os.remove(file)
-            elif file.endswith(".mp3"):
-                await query.message.reply_audio(open(file, "rb"))
-                os.remove(file)
-
-        await query.message.reply_text("✅ تم التحميل يا باشا 🔥")
+        if data == "audio":
+            file = next((f for f in os.listdir() if f.startswith("audio")), None)
+            with open(file, "rb") as f:
+                await query.message.reply_audio(f)
+        else:
+            with open("video.mp4", "rb") as f:
+                await query.message.reply_video(f)
 
     except Exception as e:
-        await query.message.reply_text("❌ حصل خطأ أثناء التحميل")
+        await query.message.reply_text(f"❌ حصلت مشكلة: {e}")
 
-# 🚀 تشغيل البوت
+# 🚀 تشغيل
 app = ApplicationBuilder().token(BOT_TOKEN).build()
 
 app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-app.add_handler(CallbackQueryHandler(download))
+app.add_handler(CallbackQueryHandler(select_video, pattern="^select_"))
+app.add_handler(CallbackQueryHandler(buttons))
 
 app.run_polling()
