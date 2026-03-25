@@ -1,12 +1,22 @@
 import telebot
 import os
 import yt_dlp
+import requests
 
 TOKEN = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
 
-# 🔥 تحميل الفيديو (نسخة متظبطة)
+# 🔥 يصلح لينك TikTok (vt → الفيديو الحقيقي)
+def fix_tiktok_url(url):
+    try:
+        r = requests.get(url, allow_redirects=True, timeout=5)
+        return r.url
+    except:
+        return url
+
+
+# 🎬 تحميل الفيديو
 def download_video(url):
     ydl_opts = {
         'format': 'bestvideo+bestaudio/best',
@@ -32,7 +42,7 @@ def download_video(url):
 # 🚀 start
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message, "👋 ازيك يا نجم!\n🔥 ابعتلي أي لينك وأنا احملهولك")
+    bot.reply_to(message, "👋 ازيك يا نجم!\n🔥 ابعتلي أي لينك فيديو وأنا احملهولك فورًا")
 
 
 # ❤️ hello
@@ -51,9 +61,16 @@ def handle_message(message):
         msg = bot.reply_to(message, "⏳ ثانية يا معلم بنحمل الفيديو...")
 
         try:
-            file_path = download_video(text)
+            fixed_url = fix_tiktok_url(text)
 
-            # حذف رسالة التحميل
+            # لو اتحول لـ explore → نرفض
+            if "explore" in fixed_url:
+                bot.delete_message(message.chat.id, msg.message_id)
+                bot.reply_to(message, "❌ اللينك ده مش فيديو يا نجم\n📌 ابعت لينك مباشر من TikTok")
+                return
+
+            file_path = download_video(fixed_url)
+
             bot.delete_message(message.chat.id, msg.message_id)
 
             with open(file_path, 'rb') as video:
@@ -73,18 +90,4 @@ def handle_message(message):
         bot.reply_to(message, "❤️ تمام يا حبيبي وانت؟")
 
     elif "عايز" in text and "فيديو" in text:
-        bot.reply_to(message, "📥 ابعت اللينك بس وأنا أظبطهولك")
-
-    elif "شكرا" in text or "thx" in text:
-        bot.reply_to(message, "❤️ حبيبي يا معلم")
-
-    elif "hi" in text or "hello" in text or "هلو" in text:
-        bot.reply_to(message, "👋 نورت يا نجم")
-
-    else:
-        bot.reply_to(message, "📩 وصلت رسالتك يا معلم")
-
-
-# ▶️ تشغيل
-print("Bot is running...")
-bot.infinity_polling()
+        bot.reply_to(message, "📥 ابعت اللينك بس
