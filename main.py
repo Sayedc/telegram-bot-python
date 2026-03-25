@@ -125,3 +125,6 @@ def main():
 # أهم سطر (التفعيل)
 if __name__ == "__main__":
     main()
+
+print("Bot is running...")
+app.run_polling()
