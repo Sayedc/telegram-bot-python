@@ -1,162 +1,113 @@
 import os
-import re
 import yt_dlp
-import asyncio
-from threading import Thread
-from flask import Flask
-
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (
-    ApplicationBuilder,
-    MessageHandler,
-    CommandHandler,
-    CallbackQueryHandler,
-    ContextTypes,
-    filters,
-)
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 
-# ================= Flask =================
-app_web = Flask(__name__)
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-@app_web.route("/")
-def home():
-    return "🔥 Sayed Bot V21 شغال!"
-
-def run_web():
-    app_web.run(host="0.0.0.0", port=8080)
-
-# ================= CONFIG =================
-TOKEN = os.getenv("TOKEN")
-
-# ================= UTILS =================
-def extract_url(text):
-    urls = re.findall(r'(https?://\S+)', text)
-    return urls[0] if urls else None
-
-def search_youtube(query):
-    ydl_opts = {
-        'quiet': True,
-        'skip_download': True,
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        result = ydl.extract_info(f"ytsearch:{query}", download=False)
-        return result['entries'][0]['webpage_url']
-
-def download(url, format_type):
-    ydl_opts = {
-        'outtmpl': 'file.%(ext)s',
-        'noplaylist': True,
-        'quiet': True,
-        'format': format_type,
-    }
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
-
-    for f in os.listdir():
-        if f.startswith("file"):
-            return f
-
-# ================= COMMANDS =================
+# 🎬 Start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🔥 اهلا بيك في Sayed Bot V21\n\n"
-        "📥 ابعت لينك فيديو او اسم اغنية وانا هجبها لك 😎"
+        "🔥 أهلاً بيك يا نجم!\n\n"
+        "ابعت لينك فيديو أو اسم أغنية وأنا أظبطهالك 😎"
     )
 
-# ================= HANDLE MESSAGE =================
+# 🔍 تحميل البيانات
+def get_info(query):
+    ydl_opts = {
+        'quiet': True,
+        'format': 'best'
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(query, download=False)
+    return info
+
+# 📩 استقبال الرسالة
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
 
-    url = extract_url(text)
+    await update.message.reply_text("🔎 بدورلك على الطلب...")
 
-    # لو مفيش لينك -> سيرش
-    if not url:
-        msg = await update.message.reply_text("🔍 بدور علي اللي طلبته...")
-        try:
-            url = search_youtube(text)
-        except:
-            await msg.edit_text("❌ ملقتش حاجة")
-            return
+    try:
+        info = get_info(f"ytsearch1:{text}" if "http" not in text else text)
 
-    context.user_data["url"] = url
+        if "entries" in info:
+            info = info["entries"][0]
 
-    keyboard = [
-        [InlineKeyboardButton("⚡ تحميل سريع", callback_data="fast")],
-        [
-            InlineKeyboardButton("360p ⚡", callback_data="360"),
-            InlineKeyboardButton("720p 🔥", callback_data="720"),
-        ],
-        [
-            InlineKeyboardButton("HD 💎", callback_data="hd"),
-            InlineKeyboardButton("🎧 صوت فقط", callback_data="audio"),
-        ],
-        [InlineKeyboardButton("❌ الغاء", callback_data="cancel")],
-    ]
+        context.user_data["url"] = info["webpage_url"]
 
-    await update.message.reply_text(
-        "🎬 اختار الجودة:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+        keyboard = [
+            [InlineKeyboardButton("⚡ 360p", callback_data="360")],
+            [InlineKeyboardButton("🔥 720p", callback_data="720")],
+            [InlineKeyboardButton("💎 HD", callback_data="best")],
+            [InlineKeyboardButton("🎧 صوت فقط", callback_data="audio")]
+        ]
 
-# ================= BUTTONS =================
-async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        await update.message.reply_text(
+            f"🎬 لقيتلك:\n{info['title']}\n\nاختار الجودة 👇",
+            reply_markup=reply_markup
+        )
+
+    except:
+        await update.message.reply_text("❌ حصلت مشكلة يا نجم")
+
+# ⬇️ تحميل
+async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
+    choice = query.data
     url = context.user_data.get("url")
 
-    if query.data == "cancel":
-        await query.edit_message_text("❌ تم الإلغاء")
-        return
-
-    await query.edit_message_text("⏳ جاري التحميل...")
+    await query.edit_message_text("⏳ جاري التحميل... استنى شوية")
 
     try:
-        if query.data == "fast":
-            file = download(url, "best")
-
-        elif query.data == "360":
-            file = download(url, "bestvideo[height<=360]+bestaudio/best[height<=360]")
-
-        elif query.data == "720":
-            file = download(url, "bestvideo[height<=720]+bestaudio/best[height<=720]")
-
-        elif query.data == "hd":
-            file = download(url, "bestvideo+bestaudio")
-
-        elif query.data == "audio":
-            file = download(url, "bestaudio")
-
+        if choice == "audio":
+            ydl_opts = {
+                'format': 'bestaudio/best',
+                'outtmpl': 'audio.%(ext)s',
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3'
+                }]
+            }
         else:
-            await query.edit_message_text("❌ اختيار غلط")
-            return
+            format_map = {
+                "360": "bestvideo[height<=360]+bestaudio/best",
+                "720": "bestvideo[height<=720]+bestaudio/best",
+                "best": "bestvideo+bestaudio/best"
+            }
 
-        # ارسال
-        if query.data == "audio":
-            with open(file, "rb") as f:
-                await query.message.reply_audio(f)
-        else:
-            with open(file, "rb") as f:
-                await query.message.reply_video(f)
+            ydl_opts = {
+                'format': format_map[choice],
+                'outtmpl': 'video.%(ext)s',
+                'merge_output_format': 'mp4'
+            }
 
-        os.remove(file)
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+
+        # إرسال الملف
+        for file in os.listdir():
+            if file.endswith(".mp4"):
+                await query.message.reply_video(open(file, "rb"))
+                os.remove(file)
+            elif file.endswith(".mp3"):
+                await query.message.reply_audio(open(file, "rb"))
+                os.remove(file)
+
+        await query.message.reply_text("✅ تم التحميل يا باشا 🔥")
 
     except Exception as e:
         await query.message.reply_text("❌ حصل خطأ أثناء التحميل")
 
-# ================= MAIN =================
-def main():
-    app = ApplicationBuilder().token(TOKEN).build()
+# 🚀 تشغيل البوت
+app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT, handle_message))
-    app.add_handler(CallbackQueryHandler(buttons))
+app.add_handler(CommandHandler("start", start))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+app.add_handler(CallbackQueryHandler(download))
 
-    print("🔥 Bot Started...")
-    app.run_polling()
-
-# ================= RUN =================
-if __name__ == "__main__":
-    Thread(target=run_web).start()
-    main()
+app.run_polling()
