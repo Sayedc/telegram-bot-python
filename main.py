@@ -14,18 +14,22 @@ def handle_message(message):
         bot.reply_to(message, "⏳ جاري تحميل الفيديو 🔥")
 
         ydl_opts = {
-            'outtmpl': 'video.mp4',
-            'format': 'best'
+    'outtmpl': '%(title)s.%(ext)s',
+    'format': 'best',
+    'noplaylist': True
         }
-
+        
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([text])
 
-            with open("video.mp4", "rb") as video:
+            import glob
+
+video_file = glob.glob("*.mp4")[0]
+
+with open(video_file, "rb") as video:
                 bot.send_video(message.chat.id, video)
 
-            os.remove("video.mp4")
 
         except Exception as e:
             bot.reply_to(message, "❌ حصل خطأ")
