@@ -1,47 +1,37 @@
 import os
 import yt_dlp
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 
 TOKEN = os.getenv("BOT_TOKEN")
 
+# تخزين اللينك مؤقت
+user_links = {}
+
+# /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("ابعت لينك وأنا أحملهولك 🔥")
+    await update.message.reply_text("👋 ابعت لينك وأنا أخليك تختار الجودة 😎🔥")
 
-async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# لما يبعت لينك
+async def handle_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text
-    msg = await update.message.reply_text("⏳ جاري التحميل...")
+    user_links[update.message.chat_id] = url
 
-    try:
-        ydl_opts = {
-            'outtmpl': 'file.%(ext)s',
-            'format': 'best[filesize<50M]',
-            'noplaylist': True,
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0'
-            }
-        }
+    keyboard = [
+        [InlineKeyboardButton("⚡ سريع (720p)", callback_data="fast")],
+        [InlineKeyboardButton("🔥 HD (أعلى جودة)", callback_data="hd")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            filename = ydl.prepare_filename(info)
+    await update.message.reply_text("اختار الجودة:", reply_markup=reply_markup)
 
-        await msg.delete()
+# لما يختار الجودة
+async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
 
-        with open(filename, 'rb') as f:
-            await update.message.reply_document(document=f)
+    choice = query.data
+    chat_id = query.message.chat_id
+    url = user_links.get(chat_id)
 
-        os.remove(filename)
-
-    except Exception as e:
-        await msg.delete()
-        print(e)
-        await update.message.reply_text("❌ حصل خطأ")
-
-app = Application.builder().token(TOKEN).build()
-
-app.add_handler(CommandHandler("start", start))
-app.add_handler(MessageHandler(filters.TEXT, download))
-
-print("Bot is running...")
-app.run_polling()
+    msg = await query.message.reply_text("⏳ جاري التحميل...")
