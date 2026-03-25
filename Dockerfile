@@ -4,12 +4,8 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y ffmpeg
 
-RUN pip install --no-cache-dir --upgrade pip uv
-
-COPY pyproject.toml .
-
-RUN uv sync --no-dev
-
 COPY . .
+
+RUN pip install --no-cache-dir python-telegram-bot yt-dlp
 
 CMD ["python", "main.py"]
