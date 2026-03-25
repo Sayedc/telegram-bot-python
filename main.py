@@ -1,6 +1,7 @@
 import telebot
 import yt_dlp
 import os
+import glob
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
@@ -8,32 +9,32 @@ bot = telebot.TeleBot(TOKEN)
 
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
-    text = message.text
+    text = message.text.strip()
 
-    if "http" in text or "www" in text:
-        bot.reply_to(message, "⏳ جاري تحميل الفيديو 🔥")
+    # لو فيه لينك
+    if "http" in text:
+        bot.reply_to(message, "⏳ جاري تحميل الفيديو...")
 
         ydl_opts = {
-    'outtmpl': '%(title)s.%(ext)s',
-    'format': 'best',
-    'noplaylist': True
+            'outtmpl': 'video.%(ext)s',
+            'format': 'best',
+            'noplaylist': True
         }
-        
+
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([text])
+                info = ydl.extract_info(text, download=True)
+                filename = ydl.prepare_filename(info)
 
-            import glob
-
-video_file = glob.glob("*.mp4")[0]
-
-with open(video_file, "rb") as video:
+            with open(filename, 'rb') as video:
                 bot.send_video(message.chat.id, video)
 
+            os.remove(filename)
 
         except Exception as e:
-            bot.reply_to(message, "❌ حصل خطأ")
+            bot.reply_to(message, "❌ حصل خطأ أثناء التحميل")
 
     else:
-        bot.reply_to(message, "ابعت لينك فيديو 😏")
+        bot.reply_to(message, "ابعت لينك فيديو 🎥")
+
 bot.infinity_polling()
