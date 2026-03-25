@@ -32,5 +32,4 @@ def handle_message(message):
 
     else:
         bot.reply_to(message, "ابعت لينك فيديو 😏")
-
 bot.infinity_polling()
