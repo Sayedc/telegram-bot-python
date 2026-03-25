@@ -1,110 +1,117 @@
 import os
+import re
 import yt_dlp
-import time
-import random
-import json
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-BOT_USERNAME = "Sayed_video_bot"
+TOKEN = os.getenv("BOT_TOKEN")
 
-DATA_FILE = "data.json"
-
-# تحميل البيانات
-def load_data():
-    with open(DATA_FILE, "r") as f:
-        return json.load(f)
-
-def save_data(data):
-    with open(DATA_FILE, "w") as f:
-        json.dump(data, f)
-
-# تسجيل المستخدم
-def register_user(user_id):
-    data = load_data()
-    if str(user_id) not in data["users"]:
-        data["users"][str(user_id)] = {"invites": 0}
-        data["count"] += 1
-        save_data(data)
-
-# 🤖 ردود بسيطة
+# ---------- Smart Replies ----------
 def smart_reply(text):
     text = text.lower()
+
+    if "hello" in text or "hi" in text:
+        return "👋 اهلا"
+
     if "ازيك" in text:
-        return "زي الفل 😎"
-    elif "hello" in text:
-        return "Hello 🔥"
-    elif "نكت" in text:
-        return random.choice([
-            "مرة واحد غبي وقع من السلم قال انا نازل 😂",
-            "مرة واحد دخل امتحان جغرافيا ضاع 😂"
-        ])
+        return "تمام 😎"
+
+    if "عامل ايه" in text:
+        return "فل 🔥"
+
+    if "مين انت" in text:
+        return "Sayed Bot 🤖"
+
+    return "ابعت لينك 🎬"
+
+# ---------- Download ----------
+def download(url, audio=False):
+    filename = "file.%(ext)s"
+
+    ydl_opts = {
+        'outtmpl': filename,
+        'quiet': True,
+        'noplaylist': True,
+    }
+
+    if audio:
+        ydl_opts.update({
+            'format': 'bestaudio/best',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+            }]
+        })
     else:
-        return "😂 ابعت لينك بس"
+        ydl_opts.update({
+            'format': 'bestvideo+bestaudio/best'
+        })
 
-# Anti-spam
-users = {}
-def can_use(user_id):
-    now = time.time()
-    if user_id in users and now - users[user_id] < 5:
-        return False
-    users[user_id] = now
-    return True
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([url])
 
-# /start
+    # يرجع اسم الملف الحقيقي
+    for f in os.listdir():
+        if f.startswith("file"):
+            return f
+
+# ---------- Commands ----------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    register_user(user_id)
-
-    data = load_data()
-    count = data["count"]
-
-    keyboard = [
-        [InlineKeyboardButton("🎬 فيديو", callback_data="video")],
-        [InlineKeyboardButton("🎧 MP3", callback_data="mp3")]
-    ]
-
     await update.message.reply_text(
-        f"ازيك 😎\nUsers: {count}",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        "👋 Sayed Bot\n"
+        "—\n"
+        "ابعت لينك 🎬"
     )
 
-# اختيار النوع
-async def choose_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
+async def hello(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("👋")
 
-    context.user_data["type"] = query.data
-
-    if query.data == "video":
-        keyboard = [
-            [InlineKeyboardButton("360p", callback_data="360")],
-            [InlineKeyboardButton("720p", callback_data="720")],
-            [InlineKeyboardButton("1080p", callback_data="1080")]
-        ]
-        await query.message.reply_text("Quality?", reply_markup=InlineKeyboardMarkup(keyboard))
-    else:
-        await query.message.reply_text("Send link")
-
-# الجودة
-async def choose_quality(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    context.user_data["quality"] = query.data
-    await query.message.reply_text("Send link")
-
-# الرسائل
+# ---------- Handler ----------
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
     text = update.message.text.strip()
 
-    register_user(user_id)
-
-    if not can_use(user_id):
+    # كلام عادي
+    if not re.search(r"http", text):
+        await update.message.reply_text(smart_reply(text))
         return
 
-    # كلام عادي
+    msg = await update.message.reply_text("⏳")
+
+    try:
+        url = text.split()[-1]
+
+        is_audio = any(word in text.lower() for word in ["mp3", "اغنية", "audio"])
+
+        file = download(url, is_audio)
+
+        await msg.edit_text("✓")
+
+        if is_audio:
+            await update.message.reply_audio(
+                audio=open(file, 'rb'),
+                caption="🎧"
+            )
+        else:
+            await update.message.reply_video(
+                video=open(file, 'rb'),
+                caption="🎬"
+            )
+
+        os.remove(file)
+
+    except:
+        await msg.edit_text("✗")
+
+# ---------- Run ----------
+app = ApplicationBuilder().token(TOKEN).build()
+
+app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("hello", hello))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+print("Running...")
+
+app.run_polling()    # كلام عادي
     if not text.startswith("http"):
         await update.message.reply_text(smart_reply(text))
         return
