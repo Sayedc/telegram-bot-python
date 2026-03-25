@@ -8,14 +8,14 @@ TOKEN = os.getenv("BOT_TOKEN")
 
 user_data = {}
 
-# استخراج اللينك من أي كلام
+# استخراج اللينك من أي نص
 def extract_url(text):
     urls = re.findall(r'(https?://\S+)', text)
     return urls[0] if urls else None
 
-# /start
+# start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("👋 ابعت لينك وأنا أظبطهولك 🔥")
+    await update.message.reply_text("👋 ابعت لينك وأنا أحملهولك 🔥")
 
 # استقبال اللينك
 async def handle_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -81,11 +81,8 @@ async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 'format': 'bestaudio',
                 'outtmpl': 'audio.%(ext)s',
                 'quiet': True,
-                'no_warnings': True,
                 'noplaylist': True,
-                'http_headers': {
-                    'User-Agent': 'Mozilla/5.0'
-                }
+                'http_headers': {'User-Agent': 'Mozilla/5.0'}
             }
         else:
             if quality == "360":
@@ -100,11 +97,8 @@ async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 'outtmpl': 'video.%(ext)s',
                 'merge_output_format': 'mp4',
                 'quiet': True,
-                'no_warnings': True,
                 'noplaylist': True,
-                'http_headers': {
-                    'User-Agent': 'Mozilla/5.0'
-                }
+                'http_headers': {'User-Agent': 'Mozilla/5.0'}
             }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -115,30 +109,17 @@ async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         with open(filename, 'rb') as f:
             if file_type == "audio":
-                await query.message.reply_audio(audio=f)
+                await query.message.reply_audio(f)
             else:
-                await query.message.reply_document(document=f)
+                await query.message.reply_document(f)
 
         os.remove(filename)
 
         await query.message.reply_text("🔥 تم التحميل!")
 
     except Exception as e:
+        print(e)
         await msg.delete()
-        print(e)
-        await query.message.reply_text("❌ حصل خطأ")
-
-# تشغيل البوت
-app = Application.builder().token(TOKEN).build()
-
-app.add_handler(CommandHandler("start", start))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_link))
-app.add_handler(CallbackQueryHandler(choose_type, pattern="^(video|audio)$"))
-app.add_handler(CallbackQueryHandler(choose_quality, pattern="^(360|720|hd)$"))
-
-print("Bot is running...")
-app.run_polling()        await msg.delete()
-        print(e)
         await query.message.reply_text("❌ حصل خطأ")
 
 # تشغيل البوت
