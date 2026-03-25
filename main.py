@@ -78,22 +78,24 @@ async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         if file_type == "audio":
             ydl_opts = {
-                'format': 'bestaudio',
+                'format': 'bestaudio/best',
                 'outtmpl': 'audio.%(ext)s',
                 'quiet': True,
                 'noplaylist': True,
                 'http_headers': {'User-Agent': 'Mozilla/5.0'}
             }
         else:
+            # 🔥 الحل النهائي للجودات
             if quality == "360":
-                fmt = 'bestvideo[height<=360]+bestaudio/best[height<=360]'
+                fmt = 'bestvideo[height<=360]+bestaudio/best[height<=360]/best'
             elif quality == "720":
-                fmt = 'bestvideo[height<=720]+bestaudio/best[height<=720]'
+                fmt = 'bestvideo[height<=720]+bestaudio/best[height<=720]/best'
             else:
                 fmt = 'bestvideo+bestaudio/best'
 
             ydl_opts = {
                 'format': fmt,
+                'format_sort': ['res', 'ext:mp4:m4a'],
                 'outtmpl': 'video.%(ext)s',
                 'merge_output_format': 'mp4',
                 'quiet': True,
