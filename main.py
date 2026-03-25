@@ -10,8 +10,8 @@ bot = telebot.TeleBot(TOKEN)
 def handle_message(message):
     text = message.text
 
-    if "http" in text:
-        bot.reply_to(message, "جاري تحميل الفيديو 🔥")
+    if "http" in text or "www" in text:
+        bot.reply_to(message, "⏳ جاري تحميل الفيديو 🔥")
 
         ydl_opts = {
             'outtmpl': 'video.mp4',
@@ -25,10 +25,12 @@ def handle_message(message):
             with open("video.mp4", "rb") as video:
                 bot.send_video(message.chat.id, video)
 
-        except:
-            bot.reply_to(message, "حصل خطأ ❌")
+            os.remove("video.mp4")
+
+        except Exception as e:
+            bot.reply_to(message, "❌ حصل خطأ")
 
     else:
-        bot.reply_to(message, "ابعت لينك فيديو 😎")
+        bot.reply_to(message, "ابعت لينك فيديو 😏")
 
 bot.infinity_polling()
