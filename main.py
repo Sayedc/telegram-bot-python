@@ -13,27 +13,30 @@ from telegram.ext import (
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-if not BOT_TOKEN:
-    print("❌ BOT_TOKEN مش موجود!")
-    exit()
-
-print("✅ BOT TOKEN OK")
-
-# استخراج اللينك
+# استخراج لينك
 def extract_url(text):
     match = re.search(r"(https?://[^\s]+)", text)
     return match.group(0) if match else None
 
-# تحديد إذا صورة
-def is_image(url):
-    return url.endswith((".jpg", ".jpeg", ".png", ".webp"))
-
-# البحث في يوتيوب
-def search_youtube(query):
+# البحث
+def search_youtube(query, index=1):
     ydl_opts = {'quiet': True}
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(f"ytsearch1:{query}", download=False)
-        return info['entries'][0]['webpage_url']
+        info = ydl.extract_info(f"ytsearch5:{query}", download=False)
+        video = info['entries'][index-1]
+        return {
+            "url": video['webpage_url'],
+            "title": video['title'],
+            "thumb": video['thumbnail']
+        }
+
+# أزرار الاختيار
+def confirm_buttons(query):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("✅ ده المطلوب", callback_data=f"ok|{query}|1")],
+        [InlineKeyboardButton("🔁 نتيجة تانية", callback_data=f"next|{query}|2")],
+        [InlineKeyboardButton("❌ إلغاء", callback_data="cancel")]
+    ])
 
 # أزرار الجودة
 def quality_buttons(url):
@@ -46,38 +49,41 @@ def quality_buttons(url):
 
 # start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🔥 ابعت لينك أو اسم فيديو/أغنية")
+    await update.message.reply_text("🔥 ابعت لينك أو اسم أغنية")
 
 # استقبال الرسائل
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     url = extract_url(text)
 
-    # 🔍 لو مفيش لينك → اعمل سيرش
+    # لو مفيش لينك → بحث
     if not url:
-        await update.message.reply_text("🔍 بدور على اللي طلبته...")
+        await update.message.reply_text("🔍 بدور...")
         try:
-            url = search_youtube(text)
-        except:
-            await update.message.reply_text("❌ ملقتش نتيجة")
-            return
+            data = search_youtube(text)
 
-    # 🖼️ لو صورة
-    if is_image(url):
-        await update.message.reply_photo(photo=url)
+            await update.message.reply_photo(
+                photo=data["thumb"],
+                caption=data["title"],
+                reply_markup=confirm_buttons(text)
+            )
+
+        except Exception as e:
+            print(e)
+            await update.message.reply_text("❌ فشل البحث")
         return
 
-    # 🎬 فيديو
+    # لو لينك مباشر
     await update.message.reply_text("🎬 اختار الجودة:", reply_markup=quality_buttons(url))
 
 # تحميل الفيديو
 def download_video(url, quality):
-    if quality == "360":
-        fmt = "bestvideo[height<=360]+bestaudio/best[height<=360]"
-    elif quality == "720":
-        fmt = "bestvideo[height<=720]+bestaudio/best[height<=720]"
-    elif quality == "audio":
+    if quality == "audio":
         fmt = "bestaudio"
+    elif quality == "360":
+        fmt = "best[height<=360]"
+    elif quality == "720":
+        fmt = "best[height<=720]"
     else:
         fmt = "best"
 
@@ -90,21 +96,87 @@ def download_video(url, quality):
         'http_headers': {'User-Agent': 'Mozilla/5.0'}
     }
 
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            return ydl.prepare_filename(info)
-    except:
-        ydl_opts['format'] = "best"
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            return ydl.prepare_filename(info)
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=True)
+        return ydl.prepare_filename(info)
 
-# الأزرار
+# التعامل مع الأزرار
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
+    data = query.data
+
+    if data == "cancel":
+        await query.message.edit_text("❌ تم الإلغاء")
+        return
+
+    # اختيار نتيجة
+    if data.startswith("ok"):
+        _, text, index = data.split("|")
+        result = search_youtube(text, int(index))
+        await query.message.reply_text(
+            "🎬 اختار الجودة:",
+            reply_markup=quality_buttons(result["url"])
+        )
+        return
+
+    # نتيجة تانية
+    if data.startswith("next"):
+        _, text, index = data.split("|")
+        index = int(index)
+
+        try:
+            result = search_youtube(text, index)
+
+            await query.message.edit_media(
+                media={"type": "photo", "media": result["thumb"], "caption": result["title"]},
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("✅ ده المطلوب", callback_data=f"ok|{text}|{index}")],
+                    [InlineKeyboardButton("🔁 نتيجة تانية", callback_data=f"next|{text}|{index+1}")],
+                    [InlineKeyboardButton("❌ إلغاء", callback_data="cancel")]
+                ])
+            )
+        except:
+            await query.answer("❌ مفيش نتائج تاني", show_alert=True)
+        return
+
+    # تحميل
+    quality, url = data.split("|")
+
+    msg = await query.message.reply_text("⏳ جاري التحميل...")
+
+    try:
+        file_path = download_video(url, quality)
+
+        if quality == "audio":
+            await query.message.reply_audio(audio=open(file_path, "rb"))
+        else:
+            await query.message.reply_video(video=open(file_path, "rb"))
+
+        await msg.delete()
+
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+    except Exception as e:
+        print(e)
+        await msg.edit_text("❌ حصل خطأ")
+
+# تشغيل
+def main():
+    print("🚀 Bot Running...")
+
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(CallbackQueryHandler(button_handler))
+
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
     quality, url = query.data.split("|")
 
     msg = await query.message.reply_text("⏳ جاري التحميل...")
