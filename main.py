@@ -1,31 +1,19 @@
-import os
-import re
 import telebot
+import os
 import yt_dlp
-from telebot.types import Message
 
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-bot = telebot.TeleBot(BOT_TOKEN)
+# التوكن من Railway
+TOKEN = os.getenv("BOT_TOKEN")
 
-# ردود عشوائية
-smart_replies = [
-    "قول يا زعيم 👀",
-    "تحت أمرك يا نجم 🔥",
-    "عايز ايه وأنا أنفذ 😎",
-    "معاك يا كبير 💪",
-]
+bot = telebot.TeleBot(TOKEN)
 
-# تحقق من اللينك
-def is_url(text):
-    return re.match(r'https?://', text)
 
-# تحميل الفيديو
+# 🎬 تحميل فيديو من أي لينك
 def download_video(url):
     ydl_opts = {
-        'outtmpl': 'video.%(ext)s',
         'format': 'best',
-        'quiet': True,
-        'noplaylist': True,
+        'outtmpl': 'video.%(ext)s',
+        'quiet': True
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -33,52 +21,57 @@ def download_video(url):
         filename = ydl.prepare_filename(info)
         return filename
 
-# /start
+
+# 🚀 أوامر أساسية
 @bot.message_handler(commands=['start'])
-def start(message: Message):
-    bot.reply_to(message, "ازيك يزمكس 😎🔥\nابعتلي لينك وأنا أحملهولك علطول 💪")
+def start(message):
+    bot.reply_to(message, "👋 ازيك يا نجم!\n\n🔥 ابعتلي أي لينك فيديو وأنا احملهولك فورًا")
 
-# /hello
+
 @bot.message_handler(commands=['hello'])
-def hello(message: Message):
-    bot.reply_to(message, "هلا والله 😍 عامل ايه؟")
+def hello(message):
+    bot.reply_to(message, "❤️ عامل ايه يا حبيبي؟")
 
-# أي رسالة
-@bot.message_handler(func=lambda m: True)
-def handle_message(message: Message):
-    text = message.text
 
-    # لو مش لينك → رد ذكي
-    if not is_url(text):
-        bot.reply_to(message, smart_replies[0])
-        return
+# 🧠 رد ذكي على أي كلام
+@bot.message_handler(func=lambda message: True)
+def handle_message(message):
+    text = message.text.lower()
 
-    # رسالة تحميل مؤقتة
-    loading_msg = bot.reply_to(message, "⏳ ثانية يا معلم بحمل الفيديو...")
+    # 📌 لو لينك
+    if text.startswith("http"):
+        try:
+            bot.reply_to(message, "⏳ ثانية يا معلم بنحمل الفيديو...")
 
-    try:
-        file_path = download_video(text)
+            file_path = download_video(text)
 
-        # حذف رسالة التحميل
-        bot.delete_message(message.chat.id, loading_msg.message_id)
+            with open(file_path, 'rb') as video:
+                bot.send_video(message.chat.id, video)
 
-        # ارسال الفيديو
-        with open(file_path, 'rb') as video:
-            bot.send_video(message.chat.id, video)
+            os.remove(file_path)
 
-        # رسالة نهائية
-        bot.send_message(
-            message.chat.id,
-            "يلا الفيديو جالك 😂🔥\nمش عايزين نشوف وشك هنا تاني 😎"
-        )
+            bot.send_message(message.chat.id, "🔥 الفيديو وصل يا نجم!")
 
-        # حذف الملف
-        os.remove(file_path)
+        except Exception as e:
+            bot.reply_to(message, "❌ حصل مشكلة في اللينك جرب واحد تاني")
 
-    except Exception as e:
-        bot.delete_message(message.chat.id, loading_msg.message_id)
-        bot.reply_to(message, "❌ اللينك غلط يا نجم أو مش مدعوم جرب غيره")
+    # 💬 ردود ذكية
+    elif "ازيك" in text or "عامل ايه" in text:
+        bot.reply_to(message, "❤️ تمام يا حبيبي وانت؟")
 
-# تشغيل البوت
+    elif "عايز" in text and "فيديو" in text:
+        bot.reply_to(message, "📥 ابعت اللينك بس وأنا أظبطهولك")
+
+    elif "شكرا" in text or "thx" in text:
+        bot.reply_to(message, "❤️ حبيبي يا معلم تحت أمرك")
+
+    elif "hi" in text or "hello" in text or "هلو" in text:
+        bot.reply_to(message, "👋 نورت يا نجم")
+
+    else:
+        bot.reply_to(message, "📩 وصلت رسالتك يا معلم")
+
+
+# ▶️ تشغيل البوت
 print("Bot is running...")
 bot.infinity_polling()
