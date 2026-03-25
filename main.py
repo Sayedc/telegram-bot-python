@@ -1,4 +1,5 @@
 import os
+import re
 import yt_dlp
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
@@ -7,13 +8,24 @@ TOKEN = os.getenv("BOT_TOKEN")
 
 user_data = {}
 
+# استخراج اللينك من أي كلام
+def extract_url(text):
+    urls = re.findall(r'(https?://\S+)', text)
+    return urls[0] if urls else None
+
 # /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("👋 ابعت لينك وأنا أظبطهولك 🔥")
 
 # استقبال اللينك
 async def handle_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    url = update.message.text
+    text = update.message.text
+    url = extract_url(text)
+
+    if not url:
+        await update.message.reply_text("❌ ابعت لينك صحيح")
+        return
+
     user_data[update.message.chat_id] = {"url": url}
 
     keyboard = [
@@ -69,13 +81,17 @@ async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 'format': 'bestaudio',
                 'outtmpl': 'audio.%(ext)s',
                 'quiet': True,
-                'no_warnings': True
+                'no_warnings': True,
+                'noplaylist': True,
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0'
+                }
             }
         else:
             if quality == "360":
-                fmt = 'best[height<=360]'
+                fmt = 'bestvideo[height<=360]+bestaudio/best[height<=360]'
             elif quality == "720":
-                fmt = 'best[height<=720]'
+                fmt = 'bestvideo[height<=720]+bestaudio/best[height<=720]'
             else:
                 fmt = 'bestvideo+bestaudio/best'
 
@@ -84,7 +100,11 @@ async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 'outtmpl': 'video.%(ext)s',
                 'merge_output_format': 'mp4',
                 'quiet': True,
-                'no_warnings': True
+                'no_warnings': True,
+                'noplaylist': True,
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0'
+                }
             }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -105,6 +125,19 @@ async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await msg.delete()
+        print(e)
+        await query.message.reply_text("❌ حصل خطأ")
+
+# تشغيل البوت
+app = Application.builder().token(TOKEN).build()
+
+app.add_handler(CommandHandler("start", start))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_link))
+app.add_handler(CallbackQueryHandler(choose_type, pattern="^(video|audio)$"))
+app.add_handler(CallbackQueryHandler(choose_quality, pattern="^(360|720|hd)$"))
+
+print("Bot is running...")
+app.run_polling()        await msg.delete()
         print(e)
         await query.message.reply_text("❌ حصل خطأ")
 
