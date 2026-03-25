@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SK Downloader</title>
+    <style>
+        body {
+            background: #0f172a;
+            color: white;
+            font-family: Arial;
+            text-align: center;
+            padding-top: 100px;
+        }
+        input {
+            width: 300px;
+            padding: 10px;
+            border-radius: 10px;
+            border: none;
+        }
+        button {
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: none;
+            background: #22c55e;
+            color: white;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<h1>🔥 SK Downloader</h1>
+
+<input id="url" placeholder="حط اللينك هنا">
+<br><br>
+
+<button onclick="download()">تحميل</button>
+
+<p id="result"></p>
+
+<script>
+function download() {
+    let url = document.getElementById("url").value;
+
+    fetch(`/download?url=${encodeURIComponent(url)}`)
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === "done") {
+            document.getElementById("result").innerHTML =
+                "✅ تم التحميل على السيرفر 🎉";
+        } else {
+            document.getElementById("result").innerHTML =
+                "❌ حصل خطأ";
+        }
+    });
+}
+</script>
+
+</body>
+</html>
