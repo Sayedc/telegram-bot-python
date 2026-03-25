@@ -6,7 +6,7 @@ WORKDIR /app
 RUN pip install --no-cache-dir --upgrade pip uv
 
 # Copy only pyproject (no uv.lock)
-COPY pyproject.toml ./
+COPY pyproject.toml
 
 # Install dependencies
 RUN uv sync --no-dev
