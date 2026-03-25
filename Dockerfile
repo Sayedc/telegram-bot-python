@@ -5,14 +5,10 @@ WORKDIR /app
 # Install uv
 RUN pip install --no-cache-dir --upgrade pip uv
 
-# Copy only pyproject (no uv.lock)
-COPY pyproject.toml
+# Copy only pyproject
+COPY pyproject.toml .
 
 # Install dependencies
 RUN uv sync --no-dev
 
-# Copy project files
-COPY . .
-
-# Run the bot
-CMD ["python", "main.py"]
+# Copy
