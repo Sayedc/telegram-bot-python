@@ -11,51 +11,46 @@ DATA_FILE = "users.json"
 
 user_data_store = {}
 
+# تحميل البيانات
 def load_users():
     if not os.path.exists(DATA_FILE):
         return {}
     with open(DATA_FILE, "r") as f:
         return json.load(f)
 
+# حفظ البيانات
 def save_users(data):
     with open(DATA_FILE, "w") as f:
         json.dump(data, f)
 
 users_db = load_users()
 
-# START
+# START (بدون دعوات)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     user_id = str(user.id)
-
-    referrer = context.args[0] if context.args else None
 
     if user_id not in users_db:
         users_db[user_id] = {
             "name": user.first_name,
             "join_date": str(datetime.now()),
             "messages": 0,
-            "banned": False,
-            "invited_by": referrer,
-            "invites": 0
+            "banned": False
         }
-
-        if referrer and referrer in users_db and referrer != user_id:
-            users_db[referrer]["invites"] += 1
-
         save_users(users_db)
 
-    total_users = len(users_db)
-    my_invites = users_db[user_id]["invites"]
+        # إشعار للأدمن
+        await context.bot.send_message(
+            chat_id=ADMIN_ID,
+            text=f"🟢 مستخدم جديد:\n👤 {user.first_name}\n🆔 {user_id}"
+        )
 
-    bot_username = (await context.bot.get_me()).username
-    my_link = f"https://t.me/{bot_username}?start={user_id}"
+    total_users = len(users_db)
 
     await update.message.reply_text(
         f"🔥 أهلاً بيك 😎\n\n"
-        f"👥 المستخدمين: {total_users}\n"
-        f"🎁 دعواتك: {my_invites}\n\n"
-        f"لينكك:\n{my_link}"
+        f"👥 عدد المستخدمين: {total_users}\n\n"
+        f"📥 ابعت لينك أو اسم فيديو وأنا أحملهولك"
     )
 
 # تسجيل النشاط
@@ -79,6 +74,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     msg = await update.message.reply_text("🔎 بدورلك...")
 
+    # لو لينك
     if "http" in text:
         user_data_store[chat_id] = {"url": text}
 
@@ -91,6 +87,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.edit_text("🎯 اختار:", reply_markup=InlineKeyboardMarkup(keyboard))
         return
 
+    # بحث
     try:
         with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
             info = ydl.extract_info(f"ytsearch3:{text}", download=False)
@@ -145,6 +142,10 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     url = user_data_store.get(chat_id, {}).get("url")
 
+    if not url:
+        await query.edit_message_text("❌ حصلت مشكلة")
+        return
+
     await query.edit_message_text("⏳ بحمل...")
 
     try:
@@ -160,10 +161,12 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if data == "audio":
             file = next((f for f in os.listdir() if f.startswith("audio")), None)
-            await query.message.reply_audio(open(file, "rb"))
+            with open(file, "rb") as f:
+                await query.message.reply_audio(f)
             os.remove(file)
         else:
-            await query.message.reply_video(open("video.mp4", "rb"))
+            with open("video.mp4", "rb") as f:
+                await query.message.reply_video(f)
             os.remove("video.mp4")
 
     except Exception as e:
