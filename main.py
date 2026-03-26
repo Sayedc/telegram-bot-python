@@ -18,12 +18,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     msg = await update.message.reply_text("🔎 بدورلك... استنى بس 😂")
 
-    # لو لينك
+    # ✅ لو لينك
     if "http" in text:
         user_data_store[chat_id] = {"url": text}
 
         keyboard = [
-            [InlineKeyboardButton("⚡ سريع", callback_data="best")],
+            [InlineKeyboardButton("⚡ تحميل فيديو", callback_data="video")],
             [InlineKeyboardButton("🎧 صوت فقط", callback_data="audio")],
             [InlineKeyboardButton("❌ إلغاء", callback_data="cancel")]
         ]
@@ -31,11 +31,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.edit_text("🎯 اختر اللي انت عايزه:", reply_markup=InlineKeyboardMarkup(keyboard))
         return
 
-    # لو بحث
+    # 🔎 لو بحث (يوتيوب)
     try:
         ydl_opts = {
-            'quiet': True,
-            'cookiefile': 'cookies.txt'
+            'quiet': True
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -74,7 +73,7 @@ async def select_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data_store[chat_id]["url"] = url
 
     keyboard = [
-        [InlineKeyboardButton("⚡ سريع", callback_data="best")],
+        [InlineKeyboardButton("⚡ تحميل فيديو", callback_data="video")],
         [InlineKeyboardButton("🎧 صوت فقط", callback_data="audio")],
         [InlineKeyboardButton("🔄 غيره", callback_data="again")],
         [InlineKeyboardButton("❌ إلغاء", callback_data="cancel")]
@@ -113,7 +112,6 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         ydl_opts = {
-            'cookiefile': 'cookies.txt',
             'quiet': True,
             'nocheckcertificate': True,
         }
@@ -132,7 +130,7 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
 
-        # إرسال الملف
+        # 📤 إرسال
         if data == "audio":
             file = next((f for f in os.listdir() if f.startswith("audio")), None)
             with open(file, "rb") as f:
