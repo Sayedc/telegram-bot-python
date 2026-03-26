@@ -25,7 +25,7 @@ def save_users(data):
 
 users_db = load_users()
 
-# START (بدون دعوات)
+# START
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     user_id = str(user.id)
@@ -47,11 +47,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     total_users = len(users_db)
 
-    await update.message.reply_text(
-        f"🔥 أهلاً بيك 😎\n\n"
-        f"👥 عدد المستخدمين: {total_users}\n\n"
-        f"📥 ابعت لينك أو اسم فيديو وأنا أحملهولك"
-    )
+    # 👇 الفرق هنا
+    if update.message.chat_id == ADMIN_ID:
+        text = (
+            f"🔥 أهلاً بيك يا أدمن 😎\n\n"
+            f"👥 عدد المستخدمين: {total_users}\n\n"
+            f"📥 البوت شغال تمام"
+        )
+    else:
+        text = (
+            f"🔥 أهلاً بيك 😎\n\n"
+            f"📥 ابعت لينك أو اسم فيديو وأنا أحملهولك"
+        )
+
+    await update.message.reply_text(text)
 
 # تسجيل النشاط
 def log_message(user_id):
