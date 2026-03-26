@@ -11,40 +11,66 @@ DATA_FILE = "users.json"
 
 user_data_store = {}
 
-# تحميل البيانات
 def load_users():
     if not os.path.exists(DATA_FILE):
         return {}
     with open(DATA_FILE, "r") as f:
         return json.load(f)
 
-# حفظ البيانات
 def save_users(data):
     with open(DATA_FILE, "w") as f:
         json.dump(data, f)
 
 users_db = load_users()
 
-# START
+# START + Referral
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     user_id = str(user.id)
 
+    referrer = None
+    if context.args:
+        referrer = context.args[0]
+
+    # مستخدم جديد
     if user_id not in users_db:
         users_db[user_id] = {
             "name": user.first_name,
             "join_date": str(datetime.now()),
             "messages": 0,
-            "banned": False
+            "banned": False,
+            "invited_by": referrer,
+            "invites": 0
         }
+
+        # تسجيل الدعوة
+        if referrer and referrer in users_db and referrer != user_id:
+            users_db[referrer]["invites"] += 1
+
         save_users(users_db)
 
         await context.bot.send_message(
             chat_id=ADMIN_ID,
-            text=f"🟢 مستخدم جديد:\n👤 {user.first_name}\n🆔 {user_id}"
+            text=f"🟢 مستخدم جديد\n👤 {user.first_name}\n🆔 {user_id}"
         )
 
-    await update.message.reply_text("🔥 أهلاً بيك يا نجم 😎")
+    total_users = len(users_db)
+    my_invites = users_db[user_id]["invites"]
+
+    bot_username = (await context.bot.get_me()).username
+    my_link = f"https://t.me/{bot_username}?start={user_id}"
+
+    keyboard = [
+        [InlineKeyboardButton("🚀 شارك البوت", url=my_link)]
+    ]
+
+    await update.message.reply_text(
+        f"🔥 أهلاً بيك يا نجم 😎\n\n"
+        f"👥 المستخدمين: {total_users}\n"
+        f"🎁 دعواتك: {my_invites}\n\n"
+        f"💥 لينكك:\n{my_link}",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 # تسجيل النشاط
 def log_message(user_id):
@@ -53,7 +79,7 @@ def log_message(user_id):
         users_db[user_id]["messages"] += 1
         save_users(users_db)
 
-# استقبال الرسائل
+# الرسائل
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.chat_id)
 
@@ -166,53 +192,13 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(f"👥 المستخدمين: {total}\n💬 الرسائل: {msgs}")
 
-# 📢 broadcast
-async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.chat_id != ADMIN_ID:
-        return
+# 🏆 ترتيب الدعوات
+async def top_invites(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    sorted_users = sorted(users_db.items(), key=lambda x: x[1].get("invites", 0), reverse=True)[:5]
 
-    msg = " ".join(context.args)
-
-    for uid in users_db:
-        try:
-            await context.bot.send_message(chat_id=int(uid), text=msg)
-        except:
-            pass
-
-    await update.message.reply_text("✅ تم الإرسال")
-
-# 🚫 ban
-async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.chat_id != ADMIN_ID:
-        return
-
-    uid = context.args[0]
-    if uid in users_db:
-        users_db[uid]["banned"] = True
-        save_users(users_db)
-        await update.message.reply_text("🚫 تم الحظر")
-
-# ✅ unban
-async def unban(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.chat_id != ADMIN_ID:
-        return
-
-    uid = context.args[0]
-    if uid in users_db:
-        users_db[uid]["banned"] = False
-        save_users(users_db)
-        await update.message.reply_text("✅ تم فك الحظر")
-
-# 🏆 top users
-async def top(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.chat_id != ADMIN_ID:
-        return
-
-    top_users = sorted(users_db.items(), key=lambda x: x[1]["messages"], reverse=True)[:5]
-
-    text = "🏆 الأكثر استخدام:\n"
-    for u in top_users:
-        text += f"{u[1]['name']} - {u[1]['messages']} رسالة\n"
+    text = "🏆 أقوى دعوات:\n\n"
+    for u in sorted_users:
+        text += f"{u[1]['name']} - {u[1].get('invites',0)} دعوة\n"
 
     await update.message.reply_text(text)
 
@@ -221,10 +207,7 @@ app = ApplicationBuilder().token(BOT_TOKEN).build()
 
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("stats", stats))
-app.add_handler(CommandHandler("broadcast", broadcast))
-app.add_handler(CommandHandler("ban", ban))
-app.add_handler(CommandHandler("unban", unban))
-app.add_handler(CommandHandler("top", top))
+app.add_handler(CommandHandler("topinv", top_invites))
 
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 app.add_handler(CallbackQueryHandler(select_video, pattern="^select_"))
