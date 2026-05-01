@@ -1,3 +1,3 @@
-python-telegram-bot==20.7
+pip install --upgrade python-telegram-bot
 pip install --upgrade yt-dlp-nightly
 ffmpeg
