@@ -1,103 +1,124 @@
 import os
+import re
+import json
+from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import yt_dlp
 
-TOKEN = "8137693278:AAEwPTeHj8JEwglERKzKvDdAAabAX1Gs08I"
+from config import BOT_TOKEN, ADMIN_IDS, MAX_FILE_SIZE_MB, DOWNLOADS_PATH
 
-# حفظ اللينك مؤقت
-user_links = {}
+# ========== إعداد المسارات ==========
+os.makedirs(DOWNLOADS_PATH, exist_ok=True)
 
-# بدء البوت
+# ========== قاعدة بيانات بسيطة ==========
+DB_FILE = "bot_database.json"
+
+def init_db():
+    if not os.path.exists(DB_FILE):
+        with open(DB_FILE, 'w') as f:
+            json.dump({"users": {}, "stats": {"total_downloads": 0}}, f)
+
+def save_user(user_id, username):
+    with open(DB_FILE, 'r+') as f:
+        data = json.load(f)
+        if str(user_id) not in data["users"]:
+            data["users"][str(user_id)] = {"username": username, "downloads": 0}
+            f.seek(0)
+            json.dump(data, f)
+
+def update_stats(user_id):
+    with open(DB_FILE, 'r+') as f:
+        data = json.load(f)
+        if str(user_id) in data["users"]:
+            data["users"][str(user_id)]["downloads"] += 1
+            data["stats"]["total_downloads"] += 1
+            f.seek(0)
+            json.dump(data, f)
+
+# ========== استخراج الرابط ==========
+def extract_link(text: str):
+    match = re.search(r'(https?://[^\s]+)', text)
+    return match.group(0) if match else None
+
+# ========== التحميل باستخدام yt-dlp ==========
+async def download_media(url, audio_only=False):
+    ydl_opts = {
+        'outtmpl': f'{DOWNLOADS_PATH}/%(title)s.%(ext)s',
+        'quiet': True,
+        'no_warnings': True,
+    }
+
+    if audio_only:
+        ydl_opts.update({
+            'format': 'bestaudio/best',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+            }]
+        })
+    else:
+        ydl_opts['format'] = 'best'
+
+    # إزالة علامة تيك توك المائية
+    if 'tiktok.com' in url:
+        ydl_opts['extractor_args'] = {'tiktok': {'without_watermark': ['true']}}
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=True)
+        file_path = ydl.prepare_filename(info)
+        if audio_only:
+            file_path = file_path.rsplit('.', 1)[0] + '.mp3'
+        return file_path, info.get('title', 'Media')
+
+# ========== أوامر البوت ==========
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🔥 ابعت لينك فيديو وأنا أظبطهالك 😎")
+    user = update.effective_user
+    save_user(user.id, user.username)
+    await update.message.reply_text(
+        f"🎬 مرحباً {user.first_name}!\n\nأرسل رابط فيديو/صورة من:\nYouTube - Instagram - TikTok - Facebook - Twitter\nوسأقوم بتحميله لك فوراً ✅"
+    )
 
-# استقبال اللينك
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    import re
+    user_id = update.effective_user.id
+    url = extract_link(update.message.text)
 
-text = update.message.text
-
-# استخراج أول لينك من الرسالة
-urls = re.findall(r'(https?://\S+)', text)
-
-if not urls:
-    await update.message.reply_text("❌ ابعت لينك صحيح")
-    return
-
-url = urls[0]
-    user_id = update.message.from_user.id
-
-    user_links[user_id] = url
-
-    keyboard = [
-        [
-            InlineKeyboardButton("🎥 فيديو", callback_data="video"),
-            InlineKeyboardButton("🎵 صوت", callback_data="audio"),
-        ]
-    ]
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    await update.message.reply_text("اختار نوع التحميل:", reply_markup=reply_markup)
-
-# التعامل مع الأزرار
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-
-    user_id = query.from_user.id
-
-    if user_id not in user_links:
-        await query.edit_message_text("❌ مفيش لينك")
+    if not url:
+        await update.message.reply_text("❌ لم أجد رابطاً صالحاً. أرسل رابط فيديو أو منشور.")
         return
 
-    url = user_links[user_id]
-
-    await query.edit_message_text("⏳ جاري التحميل...")
+    status = await update.message.reply_text("🔄 جاري التحميل...")
 
     try:
-        if query.data == "video":
-            ydl_opts = {
-                'format': 'best',
-                'outtmpl': 'video.mp4'
-            }
+        # تحميل فيديو عادي
+        file_path, title = await download_media(url, audio_only=False)
 
-        elif query.data == "audio":
-            ydl_opts = {
-                'format': 'bestaudio',
-                'outtmpl': 'audio.mp3',
-                'postprocessors': [{
-                    'key': 'FFmpegExtractAudio',
-                    'preferredcodec': 'mp3',
-                    'preferredquality': '192',
-                }],
-            }
+        # إرسال الملف
+        with open(file_path, 'rb') as f:
+            await update.message.reply_video(video=f, caption=f"✅ {title[:60]}", supports_streaming=True)
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
-
-        if query.data == "video":
-            await context.bot.send_video(chat_id=query.message.chat_id, video=open("video.mp4", "rb"))
-
-        else:
-            await context.bot.send_audio(chat_id=query.message.chat_id, audio=open("audio.mp3", "rb"))
+        os.remove(file_path)
+        update_stats(user_id)
+        await status.delete()
 
     except Exception as e:
-        await context.bot.send_message(chat_id=query.message.chat_id, text=f"❌ حصل خطأ:\n{e}")
+        await status.edit_text(f"❌ فشل التحميل: {str(e)[:100]}")
 
-    finally:
-        if os.path.exists("video.mp4"):
-            os.remove("video.mp4")
-        if os.path.exists("audio.mp3"):
-            os.remove("audio.mp3")
+async def audio_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['audio_mode'] = True
+    await update.message.reply_text("🎵 أرسل رابط الفيديو لاستخراج الصوت MP3")
 
-# تشغيل البوت
-app = ApplicationBuilder().token(TOKEN).build()
+# ========== التشغيل الرئيسي ==========
+def main():
+    init_db()
+    app = Application.builder().token(BOT_TOKEN).build()
 
-app.add_handler(CommandHandler("start", start))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-app.add_handler(CallbackQueryHandler(button_handler))
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("audio", audio_command))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-print("Bot is running...")
-app.run_polling()
+    print("✅ البوت شغال...")
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
