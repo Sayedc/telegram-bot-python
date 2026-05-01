@@ -1,8 +1,7 @@
-import os
-
+# config.py
 BOT_TOKEN = "8137693278:AAEwPTeHj8JEwglERKzKvDdAAabAX1Gs08I"
 
-# ID الأدمن بتاعك
+# ايدي الادمن بتاعك
 ADMIN_IDS = [5671168695]
 
 MAX_FILE_SIZE_MB = 50
