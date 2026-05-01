@@ -14,7 +14,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # استقبال اللينك
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    url = update.message.text
+    import re
+
+text = update.message.text
+
+# استخراج أول لينك من الرسالة
+urls = re.findall(r'(https?://\S+)', text)
+
+if not urls:
+    await update.message.reply_text("❌ ابعت لينك صحيح")
+    return
+
+url = urls[0]
     user_id = update.message.from_user.id
 
     user_links[user_id] = url
