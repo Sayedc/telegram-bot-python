@@ -1,14 +1,12 @@
-# main.py - البوت الفاخر النهائي (جميع المنصات شغالة)
+# main.py - منع تحميل الأغاني نهائياً
 import os
 import re
 import json
 import asyncio
-import shutil
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import yt_dlp
-import requests
 
 from config import BOT_TOKEN, ADMIN_IDS, MAX_FILE_SIZE_MB, DOWNLOADS_PATH
 
@@ -18,11 +16,19 @@ os.makedirs(DOWNLOADS_PATH, exist_ok=True)
 SIGNATURE = "✨ 𝓐𝓵𝓱𝓪𝔀𝔂 ✨"
 VERSION = "FINAL_10.0"
 
-# ========== ردود مصرية ==========
+# ========== المنصات الممنوعة (أغاني) ==========
+BANNED_PLATFORMS = [
+    'soundcloud', 'spotify', 'deezer', 'anghami', 'apple music',
+    'tidal', 'amazon music', 'youtube music', 'saavn', 'jio saavn',
+    'gaana', 'wynk', 'hungama', 'boomplay', 'audiomack', 'bandcamp',
+    'mixcloud', 'hearthis', 'reverbnation', 'datpiff', 'spinrilla'
+]
+
+# ========== ردود مصرية فاخرة مع تحذير ==========
 WELCOME_RESPONSES = [
-    "🎬 اهلاً بيك يا باشا {name}! 🤍",
-    "💫 نورت يا فنان {name}! 🌟",
-    "🔥 يا مرحباً يا كبير {name}! 😎",
+    "🎬 اهلاً بيك يا باشا {name}! 🤍\n\n⚠️ *تنبيه مهم:* البوت مخصص لتحميل الفيديوهات فقط! 🚫\n❌ ممنوع تحميل الأغاني من أي منصة (SoundCloud, Spotify, إلخ)",
+    "💫 نورت يا فنان {name}! 🌟\n\n🎯 *ملاحظة:* احنا بنحمّل فيديوهات بس! 📹\n🚫 أي محاولة لتحميل أغاني هتترفض فوراً",
+    "🔥 يا مرحباً يا كبير {name}! 😎\n\n📌 *تنبيه:* البوت للفيديوهات فقط من يوتيوب، فيسبوك، تيك توك، إنستا، تويتر\n❌ مفيش أغاني خالص!",
 ]
 
 PROCESSING_RESPONSES = [
@@ -30,9 +36,50 @@ PROCESSING_RESPONSES = [
     "🔥 جاري التحميل يا كبير... 💫",
 ]
 
+SUCCESS_RESPONSES = [
+    f"✅ تم يا فنان!\n{SIGNATURE}",
+    f"🎬 خد الفيديو يا باشا!\n{SIGNATURE}",
+]
+
+BANNED_MESSAGE = """
+🚫 *عذراً يا باشا!* 🚫
+
+╔══════════════════════╗
+║  ❌ منصة أغاني ❌     ║
+╚══════════════════════╝
+
+🎵 *البوت مخصص للفيديوهات فقط!*
+
+✅ *المسموح:*
+• TikTok 🎬
+• YouTube 🎬
+• Instagram 📸
+• Facebook 📘
+• Twitter 🐦
+
+❌ *الممنوع (أغاني):*
+• SoundCloud 🎵
+• Spotify 🎧
+• Deezer 📀
+• Anghami 🎶
+• Apple Music 🍎
+• وأي منصة أغاني أخرى
+
+💡 جرب رابط فيديو بدلاً من كده 🤍
+{SIGNATURE}
+"""
+
 def get_response(responses, name=None):
     text = responses[datetime.now().second % len(responses)]
     return text.format(name=name) if name else text
+
+def is_music_platform(url):
+    """التحقق إذا كان الرابط من منصة أغاني"""
+    url_lower = url.lower()
+    for platform in BANNED_PLATFORMS:
+        if platform in url_lower:
+            return True
+    return False
 
 # ========== قاعدة بيانات ==========
 DB_FILE = "bot_database.json"
@@ -116,7 +163,7 @@ def quality_keyboard():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-# ========== استخراج الرابط من أي نص ==========
+# ========== استخراج الرابط ==========
 def extract_link(text):
     patterns = [
         r'(https?://(?:www\.)?tiktok\.com/[^\s]+)',
@@ -151,7 +198,7 @@ def get_platform(url):
     else:
         return 'Website'
 
-# ========== تحميل تيك توك (بدون علامة مائية) ==========
+# ========== تحميل تيك توك ==========
 async def download_tiktok(url):
     opts = {
         'outtmpl': f'{DOWNLOADS_PATH}/tiktok_%(id)s.%(ext)s',
@@ -169,7 +216,7 @@ async def download_tiktok(url):
             info = ydl.extract_info(url, download=True)
             return ydl.prepare_filename(info), info.get('title', 'TikTok Video')
 
-# ========== تحميل فيسبوك (محدث 100%) ==========
+# ========== تحميل فيسبوك ==========
 async def download_facebook(url):
     opts = {
         'outtmpl': f'{DOWNLOADS_PATH}/facebook_%(id)s.%(ext)s',
@@ -178,7 +225,6 @@ async def download_facebook(url):
         'extract_flat': False,
     }
     
-    # المحاولة 1: أفضل جودة متاحة
     try:
         opts['format'] = 'best'
         with yt_dlp.YoutubeDL(opts) as ydl:
@@ -186,50 +232,21 @@ async def download_facebook(url):
             path = ydl.prepare_filename(info)
             return path, info.get('title', 'Facebook Video')
     except:
-        pass
-    
-    # المحاولة 2: بدون format محدد
-    try:
-        opts.pop('format', None)
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            path = ydl.prepare_filename(info)
-            return path, info.get('title', 'Facebook Video')
-    except:
-        pass
-    
-    # المحاولة 3: باستخدام impersonate
-    try:
-        opts['impersonate'] = 'chrome-120'
-        opts['format'] = 'best'
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            path = ydl.prepare_filename(info)
-            return path, info.get('title', 'Facebook Video')
-    except:
-        pass
-    
-    # المحاولة 4: استخدام API بديل
-    try:
-        import requests
-        api_url = f"https://getvideo.cc/api/videos?url={url}"
-        r = requests.get(api_url, timeout=10)
-        if r.status_code == 200:
-            data = r.json()
-            if data.get('video_url'):
-                video_url = data['video_url']
-                path = f"{DOWNLOADS_PATH}/facebook_api.mp4"
-                vr = requests.get(video_url, stream=True)
-                with open(path, 'wb') as f:
-                    for chunk in vr.iter_content(8192):
-                        f.write(chunk)
-                return path, "Facebook Video"
-    except:
-        pass
-    
-    raise Exception("Facebook: جميع المحاولات فشلت")
+        try:
+            opts.pop('format', None)
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                path = ydl.prepare_filename(info)
+                return path, info.get('title', 'Facebook Video')
+        except:
+            opts['impersonate'] = 'chrome-120'
+            opts['format'] = 'best'
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                path = ydl.prepare_filename(info)
+                return path, info.get('title', 'Facebook Video')
 
-# ========== تحميل يوتيوب وإنستا وتويتر ==========
+# ========== تحميل المنصات الأخرى ==========
 async def download_other(url, quality=None, audio=False):
     quality_map = {
         '144': 'worst[height<=144]',
@@ -265,8 +282,12 @@ async def download_other(url, quality=None, audio=False):
             path = path.rsplit('.', 1)[0] + '.mp3'
         return path, info.get('title', 'Media')
 
-# ========== الدالة الرئيسية للتحميل ==========
+# ========== الدالة الرئيسية مع منع الأغاني ==========
 async def download_media(url, quality=None, audio=False):
+    # التحقق من منصات الأغاني الممنوعة
+    if is_music_platform(url):
+        raise Exception("BANNED_PLATFORM")
+    
     if 'tiktok.com' in url or 'vt.tiktok.com' in url:
         return await download_tiktok(url)
     elif 'facebook.com' in url or 'fb.watch' in url:
@@ -278,7 +299,19 @@ async def download_media(url, quality=None, audio=False):
 async def start(update, context):
     u = update.effective_user
     save_user(u.id, u.username)
-    text = f"🖤 *أهلاً {u.first_name}!*\n\nأرسل رابط فيديو من:\n🎵 TikTok · 🎬 YouTube · 📸 Instagram · 📘 Facebook · 🐦 Twitter\n\n{get_response(WELCOME_RESPONSES, u.first_name)}\n\n{SIGNATURE}"
+    text = f"""
+🖤 *أهلاً {u.first_name}!* 🖤
+
+{SIGNATURE}
+
+📌 *قوانين البوت:*
+✅ *المسموح:* TikTok - YouTube - Instagram - Facebook - Twitter
+❌ *الممنوع:* SoundCloud - Spotify - Deezer - Anghami - Apple Music (أي منصة أغاني)
+
+🔥 *أرسل رابط فيديو وسأقوم بتحميله فوراً*
+
+{get_response(WELCOME_RESPONSES, u.first_name)}
+"""
     kb = admin_keyboard() if is_admin(u.id) else main_keyboard()
     await update.message.reply_text(text, parse_mode='Markdown', reply_markup=kb)
 
@@ -290,6 +323,11 @@ async def handle_message(update, context):
     
     if not url:
         await update.message.reply_text("❌ لم أجد رابط صحيح\nأرسل رابط من TikTok - YouTube - Instagram - Facebook - Twitter", parse_mode='Markdown')
+        return
+    
+    # التحقق من منصات الأغاني الممنوعة
+    if is_music_platform(url):
+        await update.message.reply_text(BANNED_MESSAGE, parse_mode='Markdown')
         return
     
     platform = get_platform(url)
@@ -310,7 +348,10 @@ async def handle_message(update, context):
         update_stats(u.id)
         await s.delete()
     except Exception as e:
-        await s.edit_text(f"❌ *فشل التحميل*\n```\n{str(e)[:150]}\n```\n🔄 جرب رابط آخر", parse_mode='Markdown')
+        if str(e) == "BANNED_PLATFORM":
+            await s.edit_text(BANNED_MESSAGE, parse_mode='Markdown')
+        else:
+            await s.edit_text(f"❌ *فشل التحميل*\n```\n{str(e)[:150]}\n```\n🔄 جرب رابط آخر", parse_mode='Markdown')
 
 async def audio_cmd(update, context):
     context.user_data['audio'] = True
@@ -445,7 +486,7 @@ async def callback(update, context):
         await q.edit_message_text("🎵 استخدم /audio ثم أرسل الرابط", parse_mode='Markdown')
     
     elif q.data == 'help':
-        await q.edit_message_text("📌 *المساعدة*\n\n• أرسل رابط فيديو للتحميل\n• /audio لاستخراج الصوت\n• /stats للإحصائيات\n• /share لمشاركة البوت", parse_mode='Markdown')
+        await q.edit_message_text("📌 *المساعدة*\n\n• أرسل رابط فيديو للتحميل\n• /audio لاستخراج الصوت\n• /stats للإحصائيات\n• /share لمشاركة البوت\n\n🚫 *ممنوع:* منصات الأغاني", parse_mode='Markdown')
     
     elif q.data == 'back':
         kb = admin_keyboard() if is_admin(u) else main_keyboard()
@@ -473,7 +514,8 @@ def main():
     print("🔥 البوت الفاخر شغال يا باشا!")
     print(f"👑 الأدمن: {ADMIN_IDS}")
     print(f"📦 الإصدار: {VERSION}")
-    print("📱 المنصات: TikTok | YouTube | Instagram | Facebook | Twitter")
+    print("✅ المسموح: TikTok | YouTube | Instagram | Facebook | Twitter")
+    print("🚫 الممنوع: SoundCloud | Spotify | Deezer | Anghami | Apple Music")
     print("=" * 60)
     app.run_polling()
 
