@@ -1,4 +1,4 @@
-# main.py - البوت الفاخر مع لوحة أدمن متطورة
+# main.py - البوت الفاخر النهائي
 import os
 import re
 import json
@@ -144,10 +144,12 @@ def init_db():
                 "last_date": str(datetime.now().date())
             }, f, indent=2)
 
-def save_user(user_id, username):
+def save_user(user_id, username, context=None):
+    is_new = False
     with open(DB_FILE, 'r+') as f:
         data = json.load(f)
         if str(user_id) not in data["users"]:
+            is_new = True
             data["users"][str(user_id)] = {
                 "name": username,
                 "first_seen": str(datetime.now()),
@@ -160,10 +162,21 @@ def save_user(user_id, username):
             f.seek(0)
             json.dump(data, f, indent=2)
         else:
-            # تحديث آخر ظهور
             data["users"][str(user_id)]["last_seen"] = str(datetime.now())
             f.seek(0)
             json.dump(data, f, indent=2)
+    
+    # إرسال إشعار للأدمن عند دخول مستخدم جديد
+    if is_new and context:
+        for admin_id in ADMIN_IDS:
+            try:
+                context.bot.send_message(
+                    admin_id,
+                    f"🆕 *مستخدم جديد دخل البوت* 🆕\n━━━━━━━━━━━━━━━━━━━\n👤 *الاسم:* {username}\n🆔 *ID:* `{user_id}`\n📅 *التاريخ:* {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n━━━━━━━━━━━━━━━━━━━\n{SIGNATURE}",
+                    parse_mode='Markdown'
+                )
+            except:
+                pass
 
 def update_stats(user_id, platform):
     with open(DB_FILE, 'r+') as f:
@@ -427,12 +440,11 @@ async def download_media(url, quality=None, audio=False):
 async def start(update, context):
     u = update.effective_user
     
-    # التحقق من الحظر
     if is_blocked(u.id):
         await update.message.reply_text("🚫 *لقد تم حظرك من استخدام البوت* 🚫\n\nللتواصل مع الدعم الفني", parse_mode='Markdown')
         return
     
-    save_user(u.id, u.username)
+    save_user(u.id, u.username, context)
     text = f"""
 🖤 *أهلاً {u.first_name}!* 🖤
 
@@ -452,7 +464,6 @@ async def start(update, context):
 async def handle_message(update, context):
     u = update.effective_user
     
-    # التحقق من الحظر
     if is_blocked(u.id):
         await update.message.reply_text("🚫 *لقد تم حظرك من استخدام البوت* 🚫", parse_mode='Markdown')
         return
@@ -840,13 +851,14 @@ def main():
     
     print("=" * 60)
     print(f"✨ {SIGNATURE} ✨")
-    print("🔥 البوت الفاخر شغال يا باشا!")
+    print("🔥 البوت الفاخر النهائي شغال يا باشا!")
     print(f"👑 الأدمن: {ADMIN_IDS}")
     print(f"📦 الإصدار: {VERSION}")
     print("✅ المسموح: TikTok | YouTube | Facebook")
     print("🚫 الممنوع: SoundCloud | Spotify | Deezer | Anghami | Apple Music")
     print("🎨 ستيكرات ورسائل عشوائية مفعلة")
     print("👥 نظام حظر وتتبع المستخدمين مفعل")
+    print("🆕 إشعار دخول المستخدمين الجدد مفعل")
     print("=" * 60)
     app.run_polling()
 
