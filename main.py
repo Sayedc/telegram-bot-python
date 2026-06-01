@@ -1,4 +1,4 @@
-# main.py - البوت الفاخر النهائي (النسخة المستقرة)
+# main.py - البوت الفاخر النهائي (النسخة المتطورة)
 import os
 import re
 import json
@@ -12,6 +12,12 @@ import yt_dlp
 
 from config import BOT_TOKEN, ADMIN_IDS, MAX_FILE_SIZE_MB, DOWNLOADS_PATH
 
+# ========== استيراد الملفات الجديدة ==========
+from downloader import Downloader
+from metrics import Metrics
+from security import is_safe_url, record_failed_attempt, is_user_blocked, get_failed_stats
+from rate_limiter import RateLimiter
+
 # ========== إعداد مجلد التحميلات (عشان Railway) ==========
 if os.path.isfile(DOWNLOADS_PATH):
     os.remove(DOWNLOADS_PATH)
@@ -20,6 +26,11 @@ START_TIME = datetime.now()
 
 SIGNATURE = "✨ 𝓐𝓵𝓱𝓪𝔀𝔂 ✨"
 VERSION = "FINAL_10.0"
+
+# ========== تهيئة المكونات الجديدة ==========
+downloader = Downloader(DOWNLOADS_PATH, max_concurrent=3)
+metrics = Metrics()
+rate_limiter = RateLimiter(max_requests=10, time_window=60)
 
 # ========== ستيكرات ورسائل ==========
 STICKERS = {
@@ -271,6 +282,7 @@ def admin_panel():
         [InlineKeyboardButton("🗑️ حذف الكل", callback_data="admin_delete_all")],
         [InlineKeyboardButton("⏱️ وقت التشغيل", callback_data="admin_uptime")],
         [InlineKeyboardButton("📤 نسخة احتياطية", callback_data="admin_backup")],
+        [InlineKeyboardButton("📊 مقاييس الأداء", callback_data="admin_metrics")],
         [InlineKeyboardButton("🔙 رجوع", callback_data="back")],
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -434,9 +446,22 @@ async def start(update, context):
 
 async def handle_message(update, context):
     u = update.effective_user
+    start_time = datetime.now()
+    
+    # التحقق من الحظر المؤقت من security.py
+    blocked, msg = is_user_blocked(u.id)
+    if blocked:
+        await update.message.reply_text(f"🚫 {msg}", parse_mode='Markdown')
+        return
     
     if is_blocked(u.id):
         await update.message.reply_text("🚫 *لقد تم حظرك*", parse_mode='Markdown')
+        return
+    
+    # Rate Limiting
+    allowed, wait_time, remaining = rate_limiter.is_allowed(u.id)
+    if not allowed:
+        await update.message.reply_text(f"⏳ *تم تجاوز الحد المسموح*\nيرجى الانتظار {wait_time} ثانية\nالطلبات المتبقية: {remaining}", parse_mode='Markdown')
         return
     
     url = extract_link(update.message.text)
@@ -447,13 +472,19 @@ async def handle_message(update, context):
         await update.message.reply_text("❌ أرسل رابط صحيح", parse_mode='Markdown')
         return
     
+    # فحص أمان الرابط
+    safe, msg = is_safe_url(url)
+    if not safe:
+        await update.message.reply_text(f"⚠️ {msg}", parse_mode='Markdown')
+        return
+    
     platform = get_platform(url)
     
     # عرض معلومات الفيديو
     video_info = await get_video_info(url)
     if video_info:
         await update.message.reply_text(
-            f"📹 *معلومات الفيديو*\n━━━━━━━━━━━━━━━━━━━\n📝 *العنوان:* {video_info['title'][:50]}\n⏱️ *المدة:* {video_info['duration']}\n📦 *الحجم:* {video_info['size']}\n📱 *المنصة:* {platform}\n━━━━━━━━━━━━━━━━━━━\n🔄 جاري التحميل...",
+            f"📹 *معلومات الفيديو*\n━━━━━━━━━━━━━━━━━━━\n📝 *العنوان:* {video_info['title'][:50]}\n⏱️ *المدة:* {video_info['duration']}\n📦 *الحجم:* {video_info['size']}\n📱 *المنصة:* {platform}\n━━━━━━━━━━━━━━━━━━━\n🔄 جاري التحميل...\n📊 ترتيبك في قائمة الانتظار: {downloader.get_queue_position(u.id) if downloader.queue.qsize() > 0 else 'جاري الآن'}",
             parse_mode='Markdown'
         )
     
@@ -461,9 +492,21 @@ async def handle_message(update, context):
     processing_text = get_random_processing_text(u.first_name)
     s = await update.message.reply_text(f"{sticker} {processing_text}\n📱 {platform}", parse_mode='Markdown')
     
+    # تسجيل زمن التحميل
+    download_start = datetime.now()
+    
     try:
-        path, title = await download_media(url, quality, audio)
+        # استخدام نظام Queue للتحميل
+        position = await downloader.add_to_queue(url, quality, audio, u.id)
+        if position > 1:
+            await s.edit_text(f"{sticker} {processing_text}\n📱 {platform}\n📊 ترتيبك: {position} في قائمة الانتظار")
+        
+        path, title = await downloader._download_media(url, quality, audio)
         size = os.path.getsize(path) / 1048576
+        
+        # تسجيل المقاييس
+        elapsed = (datetime.now() - download_start).total_seconds()
+        metrics.record_download(elapsed, platform, u.id)
         
         if audio:
             with open(path, 'rb') as f:
@@ -481,8 +524,17 @@ async def handle_message(update, context):
         os.remove(path)
         update_stats(u.id, platform)
         await s.delete()
+        
+        # تسجيل زمن الاستجابة
+        metrics.record_response((datetime.now() - start_time).total_seconds())
+        
     except Exception as e:
-        await s.edit_text(f"{get_random_sticker('error')} {get_random_error_text()}\n```\n{str(e)[:100]}\n```", parse_mode='Markdown')
+        metrics.record_error(str(e)[:50], u.id)
+        blocked, msg = record_failed_attempt(u.id, url)
+        if blocked:
+            await s.edit_text(f"🚫 {msg}", parse_mode='Markdown')
+        else:
+            await s.edit_text(f"{get_random_sticker('error')} {get_random_error_text()}\n```\n{str(e)[:100]}\n```\n{msg}", parse_mode='Markdown')
 
 async def audio_cmd(update, context):
     u = update.effective_user
@@ -500,8 +552,9 @@ async def stats_cmd(update, context):
     with open(DB_FILE, 'r') as f:
         data = json.load(f)
     user_data = data['users'].get(str(u.id), {})
+    remaining = rate_limiter.get_remaining(u.id)
     await update.message.reply_text(
-        f"📊 *إحصائياتك*\n━━━━━━━━━━━━━━━━━━━\n📥 تحميلات: {user_data.get('downloads', 0)}\n⭐ المنصة المفضلة: {user_data.get('fav_platform', 'لا يوجد')}\n\n🌍 إجمالي البوت: {data['total']:,}\n📈 اليوم: {data['daily']}\n\n{SIGNATURE}",
+        f"📊 *إحصائياتك*\n━━━━━━━━━━━━━━━━━━━\n📥 تحميلات: {user_data.get('downloads', 0)}\n⭐ المنصة المفضلة: {user_data.get('fav_platform', 'لا يوجد')}\n📊 الطلبات المتبقية اليوم: {remaining}\n\n🌍 إجمالي البوت: {data['total']:,}\n📈 اليوم: {data['daily']}\n\n{SIGNATURE}",
         parse_mode='Markdown'
     )
 
@@ -548,6 +601,7 @@ async def delete_my_data_cmd(update, context):
         return
     
     if delete_user_data(u.id):
+        rate_limiter.reset_user(u.id)
         await update.message.reply_text(f"🗑️ *تم حذف بياناتك*\n\n{SIGNATURE}", parse_mode='Markdown')
     else:
         await update.message.reply_text("❌ *لا توجد بيانات*", parse_mode='Markdown')
@@ -559,8 +613,9 @@ async def admin_stats(update, context):
     with open(DB_FILE, 'r') as f:
         data = json.load(f)
     blocked_count = sum(1 for u in data["users"].values() if u.get("blocked", False))
+    downloader_stats = downloader.get_stats()
     await update.message.reply_text(
-        f"👑 *إحصائيات البوت*\n━━━━━━━━━━━━━━━━━━━\n👥 المستخدمين: {len(data['users'])}\n🚫 محظورين: {blocked_count}\n📥 إجمالي التحميلات: {data['total']:,}\n📈 اليوم: {data['daily']}\n⏱️ وقت التشغيل: {get_uptime()}\n\n{SIGNATURE}",
+        f"👑 *إحصائيات البوت*\n━━━━━━━━━━━━━━━━━━━\n👥 المستخدمين: {len(data['users'])}\n🚫 محظورين: {blocked_count}\n📥 إجمالي التحميلات: {data['total']:,}\n📈 اليوم: {data['daily']}\n⏱️ وقت التشغيل: {get_uptime()}\n\n📊 *نظام التحميل*\n📥 طلبات قيد الانتظار: {downloader_stats['queue_size']}\n⚡ تحميلات نشطة: {downloader_stats['active']}\n✅ نجح: {downloader_stats['success']}\n❌ فشل: {downloader_stats['failed']}\n⏱️ متوسط وقت التحميل: {downloader_stats['avg_time']} ثانية\n\n✨ {SIGNATURE} ✨",
         parse_mode='Markdown'
     )
 
@@ -692,6 +747,18 @@ async def unblock_user_cmd(update, context):
     else:
         await update.message.reply_text(f"❌ *المستخدم غير موجود*", parse_mode='Markdown')
 
+async def admin_metrics_cmd(update, context):
+    if not is_admin(update.effective_user.id):
+        return
+    summary = metrics.get_summary()
+    downloader_stats = downloader.get_stats()
+    failed_stats = get_failed_stats()
+    
+    await update.message.reply_text(
+        f"📊 *مقاييس الأداء*\n━━━━━━━━━━━━━━━━━━━\n⏱️ متوسط زمن الاستجابة: {summary['avg_response']} ثانية\n⏱️ متوسط زمن التحميل: {summary['avg_download']} ثانية\n📈 نسبة النجاح: {summary['success_rate']}%\n🎯 أكثر منصة استخداماً: {summary['top_platform']}\n⚠️ أكثر خطأ شيوعاً: {summary['common_error']}\n\n📥 *نظام التحميل*\n⏳ طلبات منتظرة: {downloader_stats['queue_size']}\n⚡ تحميلات نشطة: {downloader_stats['active']}\n✅ نجح: {downloader_stats['success']}\n❌ فشل: {downloader_stats['failed']}\n\n🔒 *نظام الأمان*\n⚠️ محاولات فاشلة: {failed_stats['total_failed']}\n🚫 مستخدمين محظورين مؤقتاً: {failed_stats['blocked_users']}\n\n✨ {SIGNATURE} ✨",
+        parse_mode='Markdown'
+    )
+
 # ========== معالجة الأزرار ==========
 async def callback(update, context):
     q = update.callback_query
@@ -719,7 +786,8 @@ async def callback(update, context):
         with open(DB_FILE, 'r') as f:
             data = json.load(f)
         user_data = data['users'].get(str(u), {})
-        await q.edit_message_text(f"📥 {user_data.get('downloads', 0)}\n🌍 {data['total']}", parse_mode='Markdown')
+        remaining = rate_limiter.get_remaining(u)
+        await q.edit_message_text(f"📥 {user_data.get('downloads', 0)}\n🌍 {data['total']}\n📊 طلبات متبقية: {remaining}", parse_mode='Markdown')
     
     elif q.data == 'admin_panel':
         if is_admin(u):
@@ -780,6 +848,9 @@ async def callback(update, context):
     elif q.data == 'admin_backup':
         await backup_cmd(update, context)
     
+    elif q.data == 'admin_metrics':
+        await admin_metrics_cmd(update, context)
+    
     elif q.data == 'help_video':
         await q.edit_message_text("🎬 أرسل رابط الفيديو", parse_mode='Markdown')
     
@@ -797,8 +868,17 @@ async def callback(update, context):
         await q.edit_message_text("🖤 *القائمة الرئيسية*", reply_markup=kb, parse_mode='Markdown')
 
 # ========== التشغيل ==========
+async def start_downloader():
+    await downloader.start()
+
 def main():
     init_db()
+    
+    # تشغيل downloader في حدث asyncio منفصل
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.create_task(start_downloader())
+    
     app = Application.builder().token(BOT_TOKEN).build()
     
     app.add_handler(CommandHandler("start", start))
@@ -819,15 +899,18 @@ def main():
     app.add_handler(CommandHandler("backup", backup_cmd))
     app.add_handler(CommandHandler("block", block_user_cmd))
     app.add_handler(CommandHandler("unblock", unblock_user_cmd))
+    app.add_handler(CommandHandler("metrics", admin_metrics_cmd))
     
     app.add_handler(CallbackQueryHandler(callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
     print("=" * 60)
     print(f"✨ {SIGNATURE} ✨")
-    print("🔥 البوت شغال يا باشا!")
+    print("🔥 البوت المتطور شغال يا باشا!")
     print(f"👑 الأدمن: {ADMIN_IDS}")
     print("🌍 بينزل أي حاجة من أي موقع")
+    print("📊 نظام Queue و Rate Limiting مفعل")
+    print("🔒 نظام أمان متقدم مفعل")
     print("=" * 60)
     app.run_polling()
 
