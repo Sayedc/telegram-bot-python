@@ -1,5 +1,5 @@
 python-telegram-bot==20.6
-pip install --upgrade yt-dlp
+pip install --upgrade yt-dlp-nightly
 regex==2023.12.25
 python-dotenv==1.0.0
 aiofiles==23.2.1
