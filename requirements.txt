@@ -1,10 +1,6 @@
 python-telegram-bot==20.6
-pip install --upgrade yt-dlp-nightly
-regex==2023.12.25
-python-dotenv==1.0.0
+yt-dlp
 aiofiles==23.2.1
 pillow==10.1.0
-beautifulsoup4==4.12.2
 requests==2.31.0
-instaloader==4.10.1
-cryptography==41.0.7
+beautifulsoup4==4.12.2
