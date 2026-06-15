@@ -87,21 +87,19 @@ class Downloader:
         
         if audio:
             opts = {
-                'outtmpl': f'{self.downloads_path}/%(title)s.%(ext)s',
-                'quiet': True,
-                'no_warnings': True,
-                'format': 'bestaudio/best',
-                'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3'}],
+    'outtmpl': f'{self.downloads_path}/%(title)s.%(ext)s',
+    'quiet': True,
+    'no_warnings': True,
+    'format': fmt,
+    'merge_output_format': 'mp4',
+    'extractor_retries': 5,
+    'retries': 5,
             }
         else:
-            fmt = quality_map.get(quality, 'best[height<=720]')
-            opts = {
-                'outtmpl': f'{self.downloads_path}/%(title)s.%(ext)s',
-                'quiet': True,
-                'no_warnings': True,
-                'format': fmt,
-                'merge_output_format': 'mp4',
-            }
+            fmt = (
+    f"bestvideo[height<={quality}]+bestaudio/"
+    f"best[height<={quality}]/best"
+            )
         
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=True)
