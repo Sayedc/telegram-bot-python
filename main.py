@@ -492,12 +492,16 @@ if video_info:
         f"📦 الحجم: {video_info['size']}\n"
         f"📱 المنصة: {platform}\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
-        f"🔄 جاري التحميل...\n"
-        f"📊 ترتيبك في قائمة الانتظار: "
-        f"{downloader.get_queue_position(u.id) if downloader.queue.qsize() > 0 else 'جاري الآن'}"
+        f"🔄 جاري التحميل..."
     )
 
-# تسجيل زمن التحميل
+sticker = get_random_sticker("processing")
+processing_text = get_random_processing_text(u.first_name)
+
+s = await update.message.reply_text(
+    f"{sticker} {processing_text}\n📱 {platform}"
+)
+
 download_start = datetime.now()
 
 try:
