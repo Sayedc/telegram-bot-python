@@ -547,9 +547,15 @@ except Exception as e:
     blocked, msg = record_failed_attempt(u.id, url)
 
     if blocked:
-        await s.edit_text(f"🚫 {msg}", parse_mode='Markdown')
-        else:
-            await s.edit_text(f"{get_random_sticker('error')} {get_random_error_text()}\n```\n{str(e)[:100]}\n```\n{msg}", parse_mode='Markdown')
+        await s.edit_text(
+            f"🚫 {msg}",
+            parse_mode='Markdown'
+        )
+    else:
+        await s.edit_text(
+            f"{get_random_sticker('error')} {get_random_error_text()}\n```\n{str(e)[:100]}\n```\n{msg}",
+            parse_mode='Markdown'
+)
 
 async def audio_cmd(update, context):
     u = update.effective_user
