@@ -480,7 +480,7 @@ async def handle_message(update, context):
     
     platform = get_platform(url)
     
-    # عرض معلومات الفيديو
+  # عرض معلومات الفيديو
 video_info = await get_video_info(url)
 
 if video_info:
@@ -495,15 +495,12 @@ if video_info:
         f"🔄 جاري التحميل...\n"
         f"📊 ترتيبك في قائمة الانتظار: "
         f"{downloader.get_queue_position(u.id) if downloader.queue.qsize() > 0 else 'جاري الآن'}"
-    
-    
-    
     )
 
-    # تسجيل زمن التحميل
-    download_start = datetime.now()
-    
-    try:
+# تسجيل زمن التحميل
+download_start = datetime.now()
+
+try:
         # استخدام نظام Queue للتحميل
         position = await downloader.add_to_queue(url, quality, audio, u.id)
         if position > 1:
