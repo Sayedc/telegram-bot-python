@@ -481,16 +481,22 @@ async def handle_message(update, context):
     platform = get_platform(url)
     
     # عرض معلومات الفيديو
-    video_info = await get_video_info(url)
-    if video_info:
-        await update.message.reply_text(
-            f"📹 *معلومات الفيديو*\n━━━━━━━━━━━━━━━━━━━\n📝 *العنوان:* {video_info['title'][:50]}\n⏱️ *المدة:* {video_info['duration']}\n📦 *الحجم:* {video_info['size']}\n📱 *المنصة:* {platform}\n━━━━━━━━━━━━━━━━━━━\n🔄 جاري التحميل...\n📊 ترتيبك في قائمة الانتظار: {downloader.get_queue_position(u.id) if downloader.queue.qsize() > 0 else 'جاري الآن'}",
-            parse_mode='Markdown'
-        )
-    
-    sticker = get_random_sticker("processing")
-    processing_text = get_random_processing_text(u.first_name)
-    s = await update.message.reply_text(f"{sticker} {processing_text}\n📱 {platform}", parse_mode='Markdown')
+    # عرض معلومات الفيديو
+video_info = await get_video_info(url)
+
+if video_info:
+    await update.message.reply_text(
+        f"📹 معلومات الفيديو\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"📝 العنوان: {video_info['title'][:50]}\n"
+        f"⏱️ المدة: {video_info['duration']}\n"
+        f"📦 الحجم: {video_info['size']}\n"
+        f"📱 المنصة: {platform}\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"🔄 جاري التحميل...\n"
+        f"📊 ترتيبك في قائمة الانتظار: "
+        f"{downloader.get_queue_position(u.id) if downloader.queue.qsize() > 0 else 'جاري الآن'}"
+    )
     
     # تسجيل زمن التحميل
     download_start = datetime.now()
