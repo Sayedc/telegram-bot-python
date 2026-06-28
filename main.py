@@ -501,43 +501,53 @@ if video_info:
 download_start = datetime.now()
 
 try:
-        # استخدام نظام Queue للتحميل
-        position = await downloader.add_to_queue(url, quality, audio, u.id)
-        if position > 1:
-            await s.edit_text(f"{sticker} {processing_text}\n📱 {platform}\n📊 ترتيبك: {position} في قائمة الانتظار")
-        
-        path, title = await downloader._download_media(url, quality, audio)
-        size = os.path.getsize(path) / 1048576
-        
-        # تسجيل المقاييس
-        elapsed = (datetime.now() - download_start).total_seconds()
-        metrics.record_download(elapsed, platform, u.id)
-        
-        if audio:
-            with open(path, 'rb') as f:
-                await update.message.reply_audio(f, title=title[:50], caption=f"{get_random_success_text()}\n\n{SIGNATURE}", parse_mode='Markdown')
-            context.user_data['audio'] = False
-        else:
-            with open(path, 'rb') as f:
-                await update.message.reply_video(
-                    f,
-                    caption=f"{get_random_sticker('success')} {get_random_success_text()}\n\n🎬 *{title[:60]}*\n📦 `{size:.1f} MB`\n⚡ `{quality}p`\n📱 `{platform}`\n\n{SIGNATURE}",
-                    parse_mode='Markdown',
-                    supports_streaming=True
-                )
-        
-        os.remove(path)
-        update_stats(u.id, platform)
-        await s.delete()
-        
-        # تسجيل زمن الاستجابة
-        metrics.record_response((datetime.now() - start_time).total_seconds())
-        
-    except Exception as e:
-        metrics.record_error(str(e)[:50], u.id)
-        blocked, msg = record_failed_attempt(u.id, url)
-        if blocked:
-            await s.edit_text(f"🚫 {msg}", parse_mode='Markdown')
+    # استخدام نظام Queue للتحميل
+    position = await downloader.add_to_queue(url, quality, audio, u.id)
+
+    if position > 1:
+        await s.edit_text(
+            f"{sticker} {processing_text}\n📱 {platform}\n📊 ترتيبك: {position} في قائمة الانتظار"
+        )
+
+    path, title = await downloader._download_media(url, quality, audio)
+    size = os.path.getsize(path) / 1048576
+
+    # تسجيل المقاييس
+    elapsed = (datetime.now() - download_start).total_seconds()
+    metrics.record_download(elapsed, platform, u.id)
+
+    if audio:
+        with open(path, 'rb') as f:
+            await update.message.reply_audio(
+                f,
+                title=title[:50],
+                caption=f"{get_random_success_text()}\n\n{SIGNATURE}",
+                parse_mode='Markdown'
+            )
+        context.user_data['audio'] = False
+    else:
+        with open(path, 'rb') as f:
+            await update.message.reply_video(
+                f,
+                caption=f"{get_random_sticker('success')} {get_random_success_text()}\n\n🎬 *{title[:60]}*\n📦 `{size:.1f} MB`\n⚡ `{quality}p`\n📱 `{platform}`\n\n{SIGNATURE}",
+                parse_mode='Markdown',
+                supports_streaming=True
+            )
+
+    os.remove(path)
+    update_stats(u.id, platform)
+    await s.delete()
+
+    metrics.record_response(
+        (datetime.now() - start_time).total_seconds()
+    )
+
+except Exception as e:
+    metrics.record_error(str(e)[:50], u.id)
+    blocked, msg = record_failed_attempt(u.id, url)
+
+    if blocked:
+        await s.edit_text(f"🚫 {msg}", parse_mode='Markdown')
         else:
             await s.edit_text(f"{get_random_sticker('error')} {get_random_error_text()}\n```\n{str(e)[:100]}\n```\n{msg}", parse_mode='Markdown')
 
