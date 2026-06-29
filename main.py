@@ -26,47 +26,6 @@ os.makedirs(DOWNLOADS_PATH, exist_ok=True)
 START_TIME = datetime.now()
 
 # ========== قاعدة بيانات ==========
-DB_FILE = "bot_database.json"
-
-def init_db():
-    if not os.path.exists(DB_FILE):
-        with open(DB_FILE, 'w') as f:
-            json.dump({"users": {}, "total": 0, "daily": 0, "last_date": str(datetime.now().date())}, f, indent=2)
-
-async def save_user(user_id, username, context=None):
-    is_new = False
-    with open(DB_FILE, 'r+') as f:
-        data = json.load(f)
-        if str(user_id) not in data["users"]:
-            is_new = True
-            data["users"][str(user_id)] = {
-                "name": username,
-                "first_seen": str(datetime.now()),
-                "last_seen": str(datetime.now()),
-                "downloads": 0,
-                "fav_platform": "None",
-                "platforms": {},
-                "blocked": False
-            }
-            f.seek(0)
-            json.dump(data, f, indent=2)
-            f.truncate()
-        else:
-            data["users"][str(user_id)]["last_seen"] = str(datetime.now())
-            f.seek(0)
-            json.dump(data, f, indent=2)
-            f.truncate()
-    
-    if is_new and context:
-        for admin_id in ADMIN_IDS:
-            try:
-                await context.bot.send_message(
-                    admin_id,
-                    f"🆕 *مستخدم جديد* 🆕\n━━━━━━━━━━━━━━━━━━━\n👤 *الاسم:* {username}\n🆔 *ID:* `{user_id}`\n📅 *التاريخ:* {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n━━━━━━━━━━━━━━━━━━━\n{SIGNATURE}",
-                    parse_mode='Markdown'
-                )
-            except:
-                pass
 
 def update_stats(user_id, platform):
     with open(DB_FILE, 'r+') as f:
