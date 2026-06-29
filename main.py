@@ -25,65 +25,6 @@ if os.path.isfile(DOWNLOADS_PATH):
 os.makedirs(DOWNLOADS_PATH, exist_ok=True)
 START_TIME = datetime.now()
 
-SIGNATURE = "✨ 𝓐𝓵𝓱𝓪𝔀𝔂 ✨"
-VERSION = "FINAL_10.0"
-
-# ========== تهيئة المكونات الجديدة ==========
-downloader = Downloader(DOWNLOADS_PATH, max_concurrent=3)
-metrics = Metrics()
-rate_limiter = RateLimiter(max_requests=10, time_window=60)
-
-# ========== ستيكرات ورسائل ==========
-STICKERS = {
-    "processing": ["🔄", "⚙️", "⏳", "⌛", "📥", "🔧", "⚡", "💨", "🚀", "🎬", "📀", "⏰", "🕒", "🔁", "🌀"],
-    "success": ["🎉", "✅", "🤍", "🔥", "💎", "⭐", "🏆", "🎬", "📀", "⚡", "💫", "🌟", "🍿", "🎥", "📹"],
-    "error": ["❌", "⚠️", "🚫", "💔", "😅", "🤦", "🙈", "🥲", "🔁"]
-}
-
-PROCESSING_TEXTS = [
-    "يتم التحميل يا {name} ⚡",
-    "شوية صبر يا {name} 🎬",
-    "على توكل على الله يا {name} 🚀",
-    "استنى بس يا {name} 🤍",
-    "جهز نفسك يا {name} 🔥",
-    "خلصنا يا {name} تقريباً 💫",
-]
-
-SUCCESS_TEXTS = [
-    "🎬 خد الفيديو يا باشا",
-    "✅ تم يا فنان",
-    "🔥 ألف هنا",
-    "💎 استلم وادعيلي",
-]
-
-ERROR_TEXTS = [
-    "❌ معلش الفيديو معدش موجود",
-    "⚠️ حاجة غلطت، جرب فيديو تاني",
-    "🚫 جرب رابط آخر",
-]
-
-WELCOME_RESPONSES = [
-    "🎬 اهلاً بيك يا باشا {name}! 🤍\n\n🌍 *البوت بينزل أي حاجة من أي موقع*",
-    "💫 نورت يا فنان {name}! 🌟\n\n🎯 *أرسل أي رابط وسأقوم بتحميله*",
-    "🔥 يا مرحباً يا كبير {name}! 😎\n\n📌 *البوت شغال على كل المواقع*"
-]
-
-def get_random_sticker(category):
-    return random.choice(STICKERS.get(category, ["🎉"]))
-
-def get_random_processing_text(name):
-    return random.choice(PROCESSING_TEXTS).format(name=name)
-
-def get_random_success_text():
-    return random.choice(SUCCESS_TEXTS)
-
-def get_random_error_text():
-    return random.choice(ERROR_TEXTS)
-
-def get_response(responses, name=None):
-    text = responses[datetime.now().second % len(responses)]
-    return text.format(name=name) if name else text
-
 # ========== قاعدة بيانات ==========
 DB_FILE = "bot_database.json"
 
