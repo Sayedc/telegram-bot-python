@@ -26,7 +26,7 @@ os.makedirs(DOWNLOADS_PATH, exist_ok=True)
 START_TIME = datetime.now()
 
 # ========== قاعدة بيانات ==========
-
+from database.user_repository import *
 def update_stats(user_id, platform):
     with open(DB_FILE, 'r+') as f:
         data = json.load(f)
