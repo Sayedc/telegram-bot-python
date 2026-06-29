@@ -1,4 +1,3 @@
-
 async def start(update, context):
     u = update.effective_user
     
