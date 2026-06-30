@@ -17,7 +17,9 @@ from utils.helpers import (
     get_random_error_text
 )
 
-downloader = Downloader
+from config import DOWNLOADS_PATH
+
+downloader = Downloader(DOWNLOADS_PATH)
 metrics = Metrics()
 rate_limiter = RateLimiter(max_requests=10, time_window=60)
 
@@ -52,8 +54,8 @@ async def handle_message(update, context):
             f"🔄 جاري التحميل..."
         )
 
-    sticker = get_random_sticker("processing")
-    processing_text = get_random_processing_text(u.first_name)
+    sticker = get_random_sticker()
+    processing_text = get_random_processing_text()
 
     s = await update.message.reply_text(
         f"{sticker} {processing_text}\n📱 {platform}"
