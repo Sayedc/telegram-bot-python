@@ -1,72 +1,79 @@
-from utils.keyboards import admin_panel
+from telegram import Update
+from telegram.ext import ContextTypes
+
+from keyboards.main_keyboard import main_keyboard, admin_keyboard, admin_panel
+from core import is_admin
 
 
-async def callback_handler(update, context):
+async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
 
     data = q.data
+    user_id = update.effective_user.id
 
-    # ========================
-    # ADMIN PANEL
-    # ========================
+    # =========================
+    # ADMIN PANEL OPEN
+    # =========================
     if data == "admin_panel":
-        await q.edit_message_text(
-            "👑 لوحة الأدمن",
-            reply_markup=admin_panel()
-        )
-        return
+        if is_admin(user_id):
+            await q.edit_message_text(
+                "👑 لوحة الأدمن",
+                reply_markup=admin_panel()
+            )
+        else:
+            await q.edit_message_text("🚫 غير مسموح")
 
-    # ========================
-    # QUALITY / AUDIO (لو موجود عندك)
-    # ========================
-    if data.startswith("q_"):
+    # =========================
+    # HELP VIDEO
+    # =========================
+    elif data == "help_video":
+        await q.edit_message_text("🎬 ابعت الرابط وأنا أحمله كفيديو")
+
+    # =========================
+    # HELP AUDIO
+    # =========================
+    elif data == "help_audio":
+        await q.edit_message_text("🎵 ابعت الرابط وأنا أطلع الصوت")
+
+    # =========================
+    # SHARE BOT
+    # =========================
+    elif data == "share_bot":
+        await q.edit_message_text("🎁 شارك البوت مع أصحابك ❤️")
+
+    # =========================
+    # STATS
+    # =========================
+    elif data == "my_stats":
+        await q.edit_message_text("📊 إحصائياتك هتظهر هنا قريب")
+
+    # =========================
+    # BACK
+    # =========================
+    elif data == "back":
+        await q.edit_message_text(
+            "🏠 الرئيسية",
+            reply_markup=main_keyboard()
+        )
+
+    # =========================
+    # QUALITY SYSTEM (لو موجود)
+    # =========================
+    elif data.startswith("q_"):
         value = data.replace("q_", "")
 
-        context.user_data["audio"] = (value == "audio")
-        context.user_data["quality"] = None if value == "audio" else value
+        if value == "audio":
+            context.user_data["audio"] = True
+            context.user_data["quality"] = None
+            await q.edit_message_text("🎵 Audio mode ON")
+        else:
+            context.user_data["audio"] = False
+            context.user_data["quality"] = value
+            await q.edit_message_text(f"⚡ Quality: {value}p")
 
-        await q.edit_message_text(f"⚡ تم اختيار: {value}")
-        return
-
-    # ========================
-    # MAIN ACTIONS
-    # ========================
-    elif data == "help_video":
-        await q.edit_message_text("🎬 أرسل رابط الفيديو")
-
-    elif data == "help_audio":
-        await q.edit_message_text("🎵 استخراج الصوت")
-
-    elif data == "share_bot":
-        await q.edit_message_text("🎁 شارك البوت مع أصدقائك")
-
-    elif data == "my_stats":
-        await q.edit_message_text("📊 إحصائياتك")
-
-    elif data == "help":
-        await q.edit_message_text("❓ المساعدة")
-
-    elif data == "back":
-        await q.edit_message_text("🏠 الرئيسية")
-
-    # ========================
-    # ADMIN ACTIONS
-    # ========================
-    elif data == "admin_stats":
-        await q.edit_message_text("📊 Stats")
-
-    elif data == "admin_top":
-        await q.edit_message_text("🏆 Top Users")
-
-    elif data == "admin_users":
-        await q.edit_message_text("👥 Users")
-
-    elif data == "admin_broadcast":
-        await q.edit_message_text("📢 Broadcast")
-
-    elif data == "admin_clear":
-        await q.edit_message_text("🧹 Clear Done")
-
+    # =========================
+    # FALLBACK
+    # =========================
     else:
         await q.edit_message_text("⚠️ Invalid action")
