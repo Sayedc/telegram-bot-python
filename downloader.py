@@ -34,16 +34,24 @@ class Downloader:
         async with self.semaphore:
             self.active += 1
             try:
+                # استخدام run_in_executor مع timeout
                 loop = asyncio.get_event_loop()
-                result = await loop.run_in_executor(
-                    None,
-                    self._download_sync,
-                    url,
-                    quality,
-                    audio
+                result = await asyncio.wait_for(
+                    loop.run_in_executor(
+                        None,
+                        self._download_sync,
+                        url,
+                        quality,
+                        audio
+                    ),
+                    timeout=60  # 60 ثانية حد أقصى
                 )
                 self.success += 1
                 return result
+
+            except asyncio.TimeoutError:
+                self.failed += 1
+                return {"success": False, "error": "⚠️ التحميل استغرق وقتاً طويلاً (تم إلغاؤه)"}
 
             except Exception as e:
                 self.failed += 1
@@ -58,10 +66,18 @@ class Downloader:
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(url, download=True)
+
+                if info is None:
+                    return {"success": False, "error": "⚠️ الرابط غير صحيح أو غير مدعوم"}
+
                 file_path = ydl.prepare_filename(info)
 
                 if audio:
                     file_path = os.path.splitext(file_path)[0] + ".mp3"
+
+                # التأكد من وجود الملف
+                if not os.path.exists(file_path):
+                    return {"success": False, "error": "⚠️ الملف لم يتم تحميله بنجاح"}
 
                 return {
                     "success": True,
@@ -70,8 +86,12 @@ class Downloader:
                     "duration": info.get("duration", 0),
                     "timestamp": datetime.now().isoformat(),
                 }
+
+        except yt_dlp.utils.DownloadError as e:
+            return {"success": False, "error": f"⚠️ خطأ في التحميل: {str(e)[:100]}"}
+
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": f"⚠️ حدث خطأ: {str(e)[:100]}"}
 
     def _build_opts(self, quality, audio):
         quality_map = {
@@ -87,16 +107,19 @@ class Downloader:
 
         opts = {
             "outtmpl": os.path.join(self.download_path, "%(title)s.%(ext)s"),
-            "quiet": True,
-            "no_warnings": True,
+            "quiet": False,  # عشان نعرف الأخطاء
+            "no_warnings": False,
             "ignoreerrors": True,
             "noplaylist": True,
+            "verbose": True,  # عشان نعرف كل التفاصيل
         }
 
-        # استخدام الكوكيز لو موجودة
         cookies_file = "cookies.txt"
         if os.path.exists(cookies_file):
             opts["cookiefile"] = cookies_file
+
+        # محاولة تجاوز الحماية
+        opts["impersonate"] = "chrome-120"
 
         if audio:
             opts.update({
