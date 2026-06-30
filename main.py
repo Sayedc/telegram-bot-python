@@ -1,5 +1,3 @@
-# main.py - PRO STABLE VERSION
-
 import os
 from datetime import datetime
 
@@ -29,53 +27,21 @@ from handlers.admin import (
     admin_metrics_cmd
 )
 
-from core import downloader, metrics, rate_limiter, is_admin, get_uptime
-
 # ==========================
 # CONFIG
 # ==========================
-from config import BOT_TOKEN, ADMIN_IDS, DOWNLOADS_PATH
+from config import BOT_TOKEN, DOWNLOADS_PATH
 
 # ==========================
-# SYSTEM CLASSES
+# CORE (FIX IMPORTANT)
 # ==========================
-from core import downloader, metrics, rate_limiter
+from core import downloader, metrics, rate_limiter, is_admin, get_uptime
 
-# ==========================
-# DATABASE
-# ==========================
-from database.user_repository import init_db
-
-
-# =====================================================
-# GLOBAL SINGLE INSTANCES (IMPORTANT FIX - NO DUPLICATE)
-# =====================================================
-downloader = Downloader(DOWNLOADS_PATH, max_concurrent=3)
-metrics = Metrics()
-rate_limiter = RateLimiter(max_requests=10, time_window=60)
 
 START_TIME = datetime.now()
 
 SIGNATURE = "✨ ✨ 𝓐𝓵𝓱𝓪𝔀𝔂 ✨ ✨"
 BOT_USERNAME = "@SK_Download_bot"
-
-
-# ==========================
-# HELPERS
-# ==========================
-def is_admin(user_id: int) -> bool:
-    return user_id in ADMIN_IDS
-
-
-def get_uptime() -> str:
-    delta = datetime.now() - START_TIME
-    return str(delta).split('.')[0]
-
-
-# ==========================
-# INIT
-# ==========================
-os.makedirs(DOWNLOADS_PATH, exist_ok=True)
 
 
 # ==========================
@@ -86,37 +52,30 @@ async def post_init(app):
 
 
 # ==========================
-# CALLBACK HANDLER (FIXED UI BUG)
+# CALLBACK
 # ==========================
 async def callback(update, context):
     q = update.callback_query
     await q.answer()
 
-    user_id = update.effective_user.id
-
     if q.data.startswith("q_"):
         value = q.data[2:]
 
-        if value == "audio":
-            context.user_data["audio"] = True
-            context.user_data["quality"] = None
-        else:
-            context.user_data["audio"] = False
-            context.user_data["quality"] = value
+        context.user_data["audio"] = (value == "audio")
+        context.user_data["quality"] = None if value == "audio" else value
 
-        await q.edit_message_text(
-            text=f"⚡ تم التحديث: {value}",
-        )
+        await q.edit_message_text(f"⚡ Updated: {value}")
 
     elif q.data == "back":
         await q.edit_message_text("🏠 Main Menu")
 
 
 # ==========================
-# BOT START
+# MAIN
 # ==========================
 def main():
-    # init db safely
+    from database.user_repository import init_db
+
     init_db()
 
     app = (
@@ -126,16 +85,12 @@ def main():
         .build()
     )
 
-    # ==========================
-    # CORE HANDLERS
-    # ==========================
+    # handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(callback))
 
-    # ==========================
-    # ADMIN COMMANDS
-    # ==========================
+    # admin commands
     app.add_handler(CommandHandler("stats", admin_stats))
     app.add_handler(CommandHandler("top", admin_top))
     app.add_handler(CommandHandler("broadcast", broadcast_cmd))
@@ -146,18 +101,11 @@ def main():
     app.add_handler(CommandHandler("unblock", unblock_user_cmd))
     app.add_handler(CommandHandler("metrics", admin_metrics_cmd))
 
-    # ==========================
-    # LOGS
-    # ==========================
-    print("=" * 55)
+    print("=" * 50)
     print(f"🤖 BOT: {BOT_USERNAME}")
-    print("🚀 STATUS: PRODUCTION MODE ACTIVE")
-    print(f"⏱ STARTED: {START_TIME}")
-    print("=" * 55)
+    print("🚀 STATUS: PRODUCTION READY")
+    print("=" * 50)
 
-    # ==========================
-    # RUN BOT
-    # ==========================
     app.run_polling()
 
 
