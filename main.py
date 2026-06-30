@@ -28,7 +28,6 @@ START_TIME = datetime.now()
 
 # ========== قاعدة بيانات ==========
 from database.user_repository import *
-    return user_id in ADMIN_IDS
 
 # ========== معلومات الفيديو ==========
 async def get_video_info(url):
