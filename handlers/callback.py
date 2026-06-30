@@ -1,98 +1,433 @@
-from telegram import Update, InlineKeyboardMarkup
+# handlers/callback.py
+from telegram import Update
 from telegram.ext import ContextTypes
 
-from keyboards.main_keyboard import main_keyboard, admin_keyboard
-from database.user_repository import get_user_stats, get_all_users
-from config import ADMIN_IDS
+from keyboards.main_keyboard import (
+    main_keyboard,
+    admin_keyboard,
+    admin_panel,
+    quality_keyboard,
+    settings_keyboard,
+    confirm_keyboard,
+)
+from database.user_repository import get_user_stats, get_all_users, delete_user_data
+from config import ADMIN_IDS, SIGNATURE
+from core import downloader, metrics, get_uptime
+from utils.constants import SUCCESS_TEXTS, ERROR_TEXTS
+from handlers.settings import set_user_quality
 
 
 def is_admin(user_id: int):
     return user_id in ADMIN_IDS
 
 
-# =========================
-# MAIN CALLBACK HANDLER
-# =========================
 async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """المعالج الرئيسي لكل الأزرار"""
     query = update.callback_query
     await query.answer()
 
+    user_id = query.from_user.id
     data = query.data
 
     # =========================
-    # AUDIO / VIDEO / QUALITY
+    # الأزرار الأساسية
     # =========================
     if data == "help_video":
-        await query.edit_message_text("🎬 ابعت اللينك وأنا هحمله فيديو")
+        await query.edit_message_text(
+            "🎬 *تحميل فيديو*\n\n📤 أرسل رابط الفيديو مباشرة وسأقوم بتحميله بأعلى جودة\n\n✅ المنصات المدعومة:\n• TikTok (بدون علامة مائية)\n• YouTube\n• Instagram\n• Facebook\n• Twitter\n• وأي موقع تاني",
+            parse_mode="Markdown",
+        )
 
     elif data == "help_audio":
-        await query.edit_message_text("🎵 ابعت اللينك وأنا هحوله صوت")
+        await query.edit_message_text(
+            "🎵 *استخراج الصوت*\n\n📤 استخدم الأمر `/audio` ثم أرسل رابط الفيديو\n\n🎧 سأرسل لك ملف MP3 بجودة عالية",
+            parse_mode="Markdown",
+        )
 
     elif data == "quality_menu":
-        await query.edit_message_text("⚡ اختار الجودة من الإعدادات")
+        await query.edit_message_text(
+            "⚡ *اختر الجودة المناسبة:*\n\n📱 الجودة العالية = حجم أكبر\n📱 الجودة المنخفضة = حجم أصغر",
+            parse_mode="Markdown",
+            reply_markup=quality_keyboard(),
+        )
 
-    # =========================
-    # SHARE BUTTON (FIXED)
-    # =========================
     elif data == "share_bot":
         bot_username = context.bot.username
         link = f"https://t.me/{bot_username}"
-
         await query.edit_message_text(
-            f"🎁 شارك البوت مع أصحابك 👇\n\n{link}"
+            f"🎁 *شارك البوت مع أصحابك* 🎁\n\n📤 الرابط:\n`{link}`\n\n🤍 كل ما حد يشترك عبرك بتدعمني",
+            parse_mode="Markdown",
         )
 
     # =========================
-    # STATS (REAL FIX)
+    # إحصائيات المستخدم
     # =========================
     elif data == "my_stats":
-        user_id = query.from_user.id
         stats = get_user_stats(user_id)
 
         if not stats:
-            text = "📊 إحصائياتك فاضية لسه 😅"
+            text = "📊 *إحصائياتك*\n\nلا توجد بيانات بعد 😅\nاستخدم البوت وارجع تاني"
         else:
-            text = (
-                "📊 إحصائياتك:\n\n"
-                f"⬇️ تحميلات: {stats.get('downloads', 0)}\n"
-                f"🎬 فيديو: {stats.get('videos', 0)}\n"
-                f"🎵 صوت: {stats.get('audio', 0)}"
-            )
-
-        await query.edit_message_text(text)
+            text = f"""
+📊 *إحصائياتك الشخصية* 📊
+━━━━━━━━━━━━━━━━━━━
+📥 عدد التحميلات: `{stats.get('downloads', 0)}`
+🎬 فيديوهات: `{stats.get('videos', 0)}`
+🎵 صوت: `{stats.get('audio', 0)}`
+📅 عدد الزيارات: `{stats.get('visits', 0)}`
+━━━━━━━━━━━━━━━━━━━
+✨ {SIGNATURE} ✨
+"""
+        await query.edit_message_text(text, parse_mode="Markdown")
 
     # =========================
-    # ADMIN PANEL
+    # الإعدادات
+    # =========================
+    elif data == "settings_menu":
+        await query.edit_message_text(
+            "⚙️ *الإعدادات* ⚙️\n\nاختر ما تريد تعديله:",
+            parse_mode="Markdown",
+            reply_markup=settings_keyboard(),
+        )
+
+    elif data == "settings_quality":
+        await query.edit_message_text(
+            "📱 *اختر الجودة الافتراضية:*\n\nاختر الجودة التي تريدها للتحميلات القادمة",
+            parse_mode="Markdown",
+            reply_markup=quality_keyboard(),
+        )
+
+    elif data == "settings_audio":
+        context.user_data["audio"] = True
+        await query.edit_message_text(
+            "🎵 *تم تفعيل وضع الصوت الافتراضي*\n\nسيتم استخراج الصوت تلقائياً من الآن",
+            parse_mode="Markdown",
+        )
+
+    elif data == "settings_delete_data":
+        await query.edit_message_text(
+            "🗑️ *هل أنت متأكد من حذف بياناتك؟*\n\nسيتم حذف جميع بياناتك من قاعدة البيانات",
+            parse_mode="Markdown",
+            reply_markup=confirm_keyboard(),
+        )
+
+    elif data == "settings_privacy":
+        text = f"""
+🔒 *سياسة الخصوصية* 🔒
+━━━━━━━━━━━━━━━━━━━
+📌 *البيانات المحفوظة:*
+• معرف المستخدم
+• اسم المستخدم
+• تاريخ الانضمام
+• عدد التحميلات
+
+📅 *مدة الحفظ:* 30 يوم
+🗑️ *مسح البيانات:* /delete_my_data
+
+🔐 *الأمان:* بياناتك آمنة ومشفرة
+
+✨ {SIGNATURE} ✨
+"""
+        await query.edit_message_text(text, parse_mode="Markdown")
+
+    # =========================
+    # تأكيدات
+    # =========================
+    elif data == "confirm_yes":
+        if delete_user_data(user_id):
+            await query.edit_message_text(
+                f"🗑️ *تم حذف بياناتك بنجاح*\n\n✨ {SIGNATURE} ✨",
+                parse_mode="Markdown",
+            )
+        else:
+            await query.edit_message_text("❌ *لا توجد بيانات لك*", parse_mode="Markdown")
+
+    elif data == "confirm_no":
+        await query.edit_message_text(
+            "✅ *تم إلغاء العملية*\n\n✨ {SIGNATURE} ✨",
+            parse_mode="Markdown",
+        )
+
+    # =========================
+    # لوحة الأدمن
     # =========================
     elif data == "admin_panel":
-        if not is_admin(query.from_user.id):
-            await query.edit_message_text("🚫 مش admin")
+        if not is_admin(user_id):
+            await query.edit_message_text("🚫 *غير مصرح* 🚫\nهذه اللوحة مخصصة للأدمن فقط", parse_mode="Markdown")
             return
 
         await query.edit_message_text(
-            "👑 لوحة الأدمن",
-            reply_markup=admin_keyboard()
+            "👑 *لوحة تحكم الأدمن* 👑\n━━━━━━━━━━━━━━━━━━━\nاختر الأمر المناسب:",
+            parse_mode="Markdown",
+            reply_markup=admin_panel(),
         )
 
     elif data == "admin_stats":
-        if not is_admin(query.from_user.id):
+        if not is_admin(user_id):
             return
 
-        users = len(get_all_users())
+        users_data = get_all_users()
+        stats = downloader.get_stats()
+        blocked = sum(1 for u in users_data.values() if u.get("blocked", False))
 
-        await query.edit_message_text(
-            f"📊 إحصائيات البوت:\n\n👥 المستخدمين: {users}"
-        )
+        text = f"""
+👑 *إحصائيات البوت* 👑
+━━━━━━━━━━━━━━━━━━━
+👥 المستخدمين: `{len(users_data)}`
+🚫 محظورين: `{blocked}`
+📥 إجمالي التحميلات: `{stats.get('success', 0)}`
+
+📊 *نظام التحميل:*
+⏳ قائمة الانتظار: `{stats.get('queue_size', 0)}`
+⚡ نشط حالياً: `{stats.get('active', 0)}`
+✅ نجح: `{stats.get('success', 0)}`
+❌ فشل: `{stats.get('failed', 0)}`
+
+⏱️ وقت التشغيل: `{get_uptime()}`
+
+✨ {SIGNATURE} ✨
+"""
+        await query.edit_message_text(text, parse_mode="Markdown")
 
     elif data == "admin_top":
-        await query.edit_message_text("🏆 Top users قريباً")
+        if not is_admin(user_id):
+            return
+
+        users = get_all_users()
+        sorted_users = sorted(
+            users.items(),
+            key=lambda x: x[1].get("downloads", 0),
+            reverse=True,
+        )[:10]
+
+        if not sorted_users:
+            await query.edit_message_text("🏆 *لا يوجد مستخدمين بعد*", parse_mode="Markdown")
+            return
+
+        text = "🏆 *ترتيب المستخدمين الأكثر نشاطاً* 🏆\n━━━━━━━━━━━━━━━━━━━\n"
+        for i, (uid, info) in enumerate(sorted_users, 1):
+            medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}️⃣"
+            status = "🚫" if info.get("blocked") else "✅"
+            text += f"{medal} `{uid}` - {info.get('name', 'Unknown')} {status}\n   📥 {info.get('downloads', 0)}\n"
+
+        text += f"\n✨ {SIGNATURE} ✨"
+        await query.edit_message_text(text, parse_mode="Markdown")
+
+    elif data == "admin_broadcast":
+        await query.edit_message_text(
+            "📢 *إرسال إعلان*\n━━━━━━━━━━━━━━━━━━━\nاستخدم الأمر:\n`/broadcast <الرسالة>`\n\nمثال:\n`/broadcast مرحباً بالجميع`",
+            parse_mode="Markdown",
+        )
 
     elif data == "admin_users":
+        if not is_admin(user_id):
+            return
+
         users = get_all_users()
-        await query.edit_message_text(f"👥 عدد المستخدمين: {len(users)}")
+        text = "👥 *قائمة المستخدمين*\n━━━━━━━━━━━━━━━━━━━\n"
+
+        for uid, info in list(users.items())[:20]:
+            status = "🚫" if info.get("blocked") else "✅"
+            text += f"• `{uid}` - {info.get('name', 'Unknown')} {status}\n   📥 {info.get('downloads', 0)}\n"
+
+        if len(users) > 20:
+            text += f"\n... و {len(users) - 20} مستخدم آخر"
+
+        text += f"\n\n✨ {SIGNATURE} ✨"
+        await query.edit_message_text(text, parse_mode="Markdown")
+
+    elif data == "admin_block":
+        await query.edit_message_text(
+            "🚫 *حظر مستخدم*\n━━━━━━━━━━━━━━━━━━━\nاستخدم الأمر:\n`/block <user_id>`\n\nللعثور على user_id، استخدم أمر `/users`",
+            parse_mode="Markdown",
+        )
+
+    elif data == "admin_unblock":
+        await query.edit_message_text(
+            "🔓 *إلغاء حظر مستخدم*\n━━━━━━━━━━━━━━━━━━━\nاستخدم الأمر:\n`/unblock <user_id>`\n\nللعثور على user_id، استخدم أمر `/users`",
+            parse_mode="Markdown",
+        )
 
     elif data == "admin_clear":
-        await query.edit_message_text("🧹 تم التنظيف")
+        if not is_admin(user_id):
+            return
 
+        import os
+        from config import DOWNLOADS_PATH
+
+        count = 0
+        for f in os.listdir(DOWNLOADS_PATH):
+            try:
+                os.remove(os.path.join(DOWNLOADS_PATH, f))
+                count += 1
+            except:
+                pass
+
+        await query.edit_message_text(
+            f"🗑️ *تم حذف {count} ملف مؤقت*\n\n✨ {SIGNATURE} ✨",
+            parse_mode="Markdown",
+        )
+
+    elif data == "admin_delete_all":
+        if not is_admin(user_id):
+            return
+
+        from database.user_repository import save_data, load_data
+
+        data = load_data()
+        admin_name = data["users"].get(str(user_id), {}).get("name", "Admin")
+        data["users"] = {
+            str(user_id): {
+                "name": admin_name,
+                "downloads": 0,
+                "blocked": False,
+                "joined": str(datetime.now()),
+                "last_seen": str(datetime.now()),
+            }
+        }
+        data["total"] = 1
+        data["daily"] = 0
+        data["last_date"] = str(datetime.now().date())
+        save_data(data)
+
+        await query.edit_message_text(
+            f"🗑️ *تم حذف جميع المستخدمين (عدا الأدمن)*\n\n✨ {SIGNATURE} ✨",
+            parse_mode="Markdown",
+        )
+
+    elif data == "admin_uptime":
+        if not is_admin(user_id):
+            return
+
+        await query.edit_message_text(
+            f"⏱️ *وقت تشغيل البوت*\n━━━━━━━━━━━━━━━━━━━\n{get_uptime()}\n━━━━━━━━━━━━━━━━━━━\n✨ {SIGNATURE} ✨",
+            parse_mode="Markdown",
+        )
+
+    elif data == "admin_backup":
+        if not is_admin(user_id):
+            return
+
+        import shutil
+        from database.user_repository import DB_FILE
+
+        backup_file = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        shutil.copy(DB_FILE, backup_file)
+
+        await query.message.reply_document(
+            document=open(backup_file, "rb"),
+            caption=f"📦 *نسخة احتياطية*\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n✨ {SIGNATURE} ✨",
+            parse_mode="Markdown",
+        )
+        os.remove(backup_file)
+
+        await query.edit_message_text("📤 *تم إرسال النسخة الاحتياطية*", parse_mode="Markdown")
+
+    elif data == "admin_metrics":
+        if not is_admin(user_id):
+            return
+
+        summary = metrics.get_summary()
+        stats = downloader.get_stats()
+
+        text = f"""
+📊 *مقاييس الأداء* 📊
+━━━━━━━━━━━━━━━━━━━
+⏱️ متوسط زمن الاستجابة: `{summary.get('avg_response', 0)}` ثانية
+⏱️ متوسط زمن التحميل: `{summary.get('avg_download', 0)}` ثانية
+📈 نسبة النجاح: `{summary.get('success_rate', 0)}%`
+🎯 أكثر منصة استخداماً: `{summary.get('top_platform', 'None')}`
+
+📥 *نظام التحميل:*
+⏳ طلبات منتظرة: `{stats.get('queue_size', 0)}`
+⚡ تحميلات نشطة: `{stats.get('active', 0)}`
+✅ نجح: `{stats.get('success', 0)}`
+❌ فشل: `{stats.get('failed', 0)}`
+
+✨ {SIGNATURE} ✨
+"""
+        await query.edit_message_text(text, parse_mode="Markdown")
+
+    elif data == "admin_logs":
+        if not is_admin(user_id):
+            return
+
+        # عرض آخر 10 أخطاء من الملف
+        try:
+            with open("logs/errors.log", "r") as f:
+                lines = f.readlines()[-10:]
+                logs = "".join(lines) if lines else "لا توجد أخطاء"
+        except:
+            logs = "لا يوجد ملف سجل"
+
+        await query.edit_message_text(
+            f"📋 *سجل الأخطاء (آخر 10)*\n━━━━━━━━━━━━━━━━━━━\n```\n{logs}\n```\n\n✨ {SIGNATURE} ✨",
+            parse_mode="Markdown",
+        )
+
+    elif data == "admin_restart":
+        if not is_admin(user_id):
+            return
+
+        await query.edit_message_text("🔄 *جاري إعادة تشغيل البوت...*\n\n⏳ سيستغرق بضع ثوانٍ")
+        os._exit(0)
+
+    # =========================
+    # أزرار الجودة
+    # =========================
+    elif data.startswith("q_"):
+        quality = data.replace("q_", "")
+
+        if quality == "audio":
+            context.user_data["audio"] = True
+            await query.edit_message_text(
+                "🎵 *وضع الصوت مفعل*\n\nسيتم استخراج الصوت من الفيديوهات القادمة",
+                parse_mode="Markdown",
+            )
+        else:
+            context.user_data["quality"] = quality
+            context.user_data["audio"] = False
+            set_user_quality(user_id, quality)
+            await query.edit_message_text(
+                f"⚡ *تم ضبط الجودة إلى {quality}p*\n\nسيتم استخدام هذه الجودة للتحميلات القادمة",
+                parse_mode="Markdown",
+            )
+
+    # =========================
+    # المساعدة
+    # =========================
+    elif data == "help":
+        text = """
+📌 *المساعدة* 📌
+━━━━━━━━━━━━━━━━━━━
+🎬 *تحميل:* أرسل الرابط مباشرة
+🎵 *صوت:* /audio ثم الرابط
+⚡ *جودة:* اختر من القائمة
+📊 *إحصائيات:* /stats
+🎁 *مشاركة:* /share
+⚙️ *إعدادات:* من القائمة
+🔒 *خصوصية:* /privacy
+🗑️ *مسح بياناتي:* /delete_my_data
+
+🌍 *البوت بينزل أي حاجة من أي موقع*
+
+✨ 𝓐𝓵𝓱𝓪𝔀𝔂 ✨
+"""
+        await query.edit_message_text(text, parse_mode="Markdown")
+
+    # =========================
+    # رجوع
+    # =========================
+    elif data == "back":
+        kb = admin_keyboard() if is_admin(user_id) else main_keyboard()
+        await query.edit_message_text(
+            "🖤 *القائمة الرئيسية* 🖤",
+            reply_markup=kb,
+            parse_mode="Markdown",
+        )
+
+    # =========================
+    # أي شيء آخر
+    # =========================
     else:
-        await query.edit_message_text("⚠️ Invalid action")
+        await query.edit_message_text("⚠️ *إجراء غير معروف*\n\nجرب مرة أخرى", parse_mode="Markdown")
