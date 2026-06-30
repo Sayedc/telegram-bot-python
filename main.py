@@ -14,7 +14,7 @@ from telegram.ext import (
 # ========== handlers ==========
 from handlers.start import start
 from handlers.message import handle_message
-from handlers.admin import *
+#from handlers.admin import *
 
 # ========== keyboards ==========
 from keyboards.main_keyboard import *
