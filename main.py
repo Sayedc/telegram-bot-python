@@ -4,9 +4,7 @@ from datetime import datetime
 from telegram.ext import (
     Application,
     MessageHandler,
-    from handlers.callback import callback_handler
-
-app.add_handler(CallbackQueryHandler(callback_handler))
+    CallbackQueryHandler,
     CommandHandler,
     filters,
 )
@@ -16,6 +14,7 @@ app.add_handler(CallbackQueryHandler(callback_handler))
 # ==========================
 from handlers.start import start
 from handlers.message import handle_message
+from handlers.callback import callback_handler  # 👈 لازم تكون دي موجودة في callback.py
 
 from handlers.admin import (
     admin_stats,
@@ -35,14 +34,11 @@ from handlers.admin import (
 from config import BOT_TOKEN, DOWNLOADS_PATH, ADMIN_IDS
 
 # ==========================
-# CORE SYSTEM (IMPORTANT FIX)
+# CORE SYSTEM
 # ==========================
 from core import downloader, metrics, rate_limiter, is_admin, get_uptime
 
 
-# ==========================
-# BOT INFO
-# ==========================
 BOT_USERNAME = "@SK_Download_bot"
 SIGNATURE = "✨ ✨ 𝓐𝓵𝓱𝓪𝔀𝔂 ✨ ✨"
 
@@ -57,45 +53,27 @@ async def post_init(app):
 
 
 # ==========================
-# CALLBACK HANDLER (FIXED & STABLE)
+# CALLBACK (MAIN FIX)
 # ==========================
 async def callback(update, context):
     q = update.callback_query
     await q.answer()
 
     data = q.data
-    user_id = update.effective_user.id
 
-    # 🎯 quality / audio system
-    if data.startswith("q_"):
-        value = data.replace("q_", "")
+    # 🎯 forward to callback_handler (لو انت عامل ملف منفصل)
+    if callback_handler:
+        return await callback_handler(update, context)
 
-        if value == "audio":
-            context.user_data["audio"] = True
-            context.user_data["quality"] = None
-            await q.edit_message_text("🎵 Audio mode activated")
-        else:
-            context.user_data["audio"] = False
-            context.user_data["quality"] = value
-            await q.edit_message_text(f"⚡ Quality set to {value}p")
-
-    # 🔙 back button
-    elif data == "back":
-        await q.edit_message_text(
-            "🏠 Main Menu\n\n✨ اختر من القائمة",
-        )
-
-    # 🛡 fallback (prevents dead buttons)
-    else:
-        await q.edit_message_text("⚠️ Invalid action")
+    # fallback
+    await q.edit_message_text("⚠️ Invalid action")
 
 
 # ==========================
-# MAIN FUNCTION
+# MAIN
 # ==========================
 def main():
     from database.user_repository import init_db
-
     init_db()
 
     app = (
@@ -105,20 +83,14 @@ def main():
         .build()
     )
 
-    # ==========================
-    # USER HANDLERS
-    # ==========================
+    # USER
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    # ==========================
-    # CALLBACK HANDLER
-    # ==========================
+    # CALLBACK
     app.add_handler(CallbackQueryHandler(callback))
 
-    # ==========================
-    # ADMIN COMMANDS
-    # ==========================
+    # ADMIN
     app.add_handler(CommandHandler("stats", admin_stats))
     app.add_handler(CommandHandler("top", admin_top))
     app.add_handler(CommandHandler("broadcast", broadcast_cmd))
@@ -129,21 +101,14 @@ def main():
     app.add_handler(CommandHandler("unblock", unblock_user_cmd))
     app.add_handler(CommandHandler("metrics", admin_metrics_cmd))
 
-    # ==========================
-    # START LOG
-    # ==========================
-    print("=" * 55)
-    print(f"🤖 BOT STARTED: {BOT_USERNAME}")
-    print("🚀 STATUS: PRODUCTION MODE")
+    print("=" * 50)
+    print(f"🤖 BOT: {BOT_USERNAME}")
+    print("🚀 STATUS: PRODUCTION READY")
     print("⚡ CALLBACK FIXED")
-    print("🧠 ADMIN SYSTEM READY")
-    print("=" * 55)
+    print("=" * 50)
 
     app.run_polling()
 
 
-# ==========================
-# RUN
-# ==========================
 if __name__ == "__main__":
     main()
