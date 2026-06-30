@@ -1,10 +1,55 @@
-# config.py
-BOT_TOKEN = "8664995702:AAG9aOJNHDJSzNuWQ-x1Cs5C2qw2RdV3c_U"
+import os
+from dotenv import load_dotenv
 
-# ايدي الادمن بتاعك
-ADMIN_IDS = [5671168695]
+# ==========================================
+# Load .env
+# ==========================================
+load_dotenv()
 
-MAX_FILE_SIZE_MB = 50
-DOWNLOADS_PATH = "/tmp/downloads"
+# ==========================================
+# Telegram
+# ==========================================
+BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 
-SIGNATURE = "✨ 𝓐𝓵𝓱𝓪𝔀𝔂 ✨"
+# ==========================================
+# Admins
+# اكتب الأيديات مفصولة بفاصلة
+# مثال:
+# ADMIN_IDS=123456789,987654321
+# ==========================================
+ADMIN_IDS = [
+    int(x)
+    for x in os.getenv("ADMIN_IDS", "").split(",")
+    if x.strip().isdigit()
+]
+
+# ==========================================
+# Paths
+# ==========================================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+DOWNLOADS_PATH = os.path.join(BASE_DIR, "downloads")
+COOKIES_FILE = os.path.join(BASE_DIR, "cookies.txt")
+LOGS_PATH = os.path.join(BASE_DIR, "logs")
+
+os.makedirs(DOWNLOADS_PATH, exist_ok=True)
+os.makedirs(LOGS_PATH, exist_ok=True)
+
+# ==========================================
+# Limits
+# ==========================================
+MAX_VIDEO_SIZE = 2 * 1024 * 1024 * 1024
+MAX_CONCURRENT_DOWNLOADS = 3
+
+# ==========================================
+# Bot
+# ==========================================
+BOT_NAME = "Alhawy"
+
+SIGNATURE = """
+✨━━━━━━━━━━━━━━━✨
+🤖 Powered By Alhawy
+✨━━━━━━━━━━━━━━━✨
+"""
+
+VERSION = "2.0.0"
