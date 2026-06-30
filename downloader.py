@@ -2,13 +2,14 @@ import os
 import asyncio
 import yt_dlp
 from datetime import datetime
+from collections import deque
 
 
 class Downloader:
     def __init__(self, download_path: str, max_concurrent: int = 3):
         self.download_path = download_path
         self.semaphore = asyncio.Semaphore(max_concurrent)
-        self.queue = []
+        self.queue = deque()
         self.active = 0
         self.success = 0
         self.failed = 0
@@ -26,38 +27,6 @@ class Downloader:
             "active": self.active,
             "success": self.success,
             "failed": self.failed,
-        }
-
-    def _build_opts(self, quality="best", audio=False):
-
-        if audio:
-            return {
-                "format": "bestaudio/best",
-                "outtmpl": f"{self.download_path}/%(title)s.%(ext)s",
-                "quiet": True,
-                "no_warnings": True,
-                "postprocessors": [{
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "mp3",
-                    "preferredquality": "192",
-                }],
-            }
-
-        quality_map = {
-            "144": "worst[height<=144]",
-            "240": "best[height<=240]",
-            "360": "best[height<=360]",
-            "480": "best[height<=480]",
-            "720": "best[height<=720]",
-            "1080": "best[height<=1080]",
-        }
-
-        return {
-            "format": quality_map.get(str(quality), "best"),
-            "merge_output_format": "mp4",
-            "outtmpl": f"{self.download_path}/%(title)s.%(ext)s",
-            "quiet": True,
-            "no_warnings": True,
         }
 
     async def download(self, url: str, quality="720", audio=False):
