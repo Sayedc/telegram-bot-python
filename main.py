@@ -30,18 +30,21 @@ from handlers.admin import (
 # ==========================
 # CONFIG
 # ==========================
-from config import BOT_TOKEN, DOWNLOADS_PATH
+from config import BOT_TOKEN, DOWNLOADS_PATH, ADMIN_IDS
 
 # ==========================
-# CORE (FIX IMPORTANT)
+# CORE SYSTEM (IMPORTANT FIX)
 # ==========================
 from core import downloader, metrics, rate_limiter, is_admin, get_uptime
 
 
-START_TIME = datetime.now()
-
-SIGNATURE = "✨ ✨ 𝓐𝓵𝓱𝓪𝔀𝔂 ✨ ✨"
+# ==========================
+# BOT INFO
+# ==========================
 BOT_USERNAME = "@SK_Download_bot"
+SIGNATURE = "✨ ✨ 𝓐𝓵𝓱𝓪𝔀𝔂 ✨ ✨"
+
+START_TIME = datetime.now()
 
 
 # ==========================
@@ -52,26 +55,41 @@ async def post_init(app):
 
 
 # ==========================
-# CALLBACK
+# CALLBACK HANDLER (FIXED & STABLE)
 # ==========================
 async def callback(update, context):
     q = update.callback_query
     await q.answer()
 
-    if q.data.startswith("q_"):
-        value = q.data[2:]
+    data = q.data
+    user_id = update.effective_user.id
 
-        context.user_data["audio"] = (value == "audio")
-        context.user_data["quality"] = None if value == "audio" else value
+    # 🎯 quality / audio system
+    if data.startswith("q_"):
+        value = data.replace("q_", "")
 
-        await q.edit_message_text(f"⚡ Updated: {value}")
+        if value == "audio":
+            context.user_data["audio"] = True
+            context.user_data["quality"] = None
+            await q.edit_message_text("🎵 Audio mode activated")
+        else:
+            context.user_data["audio"] = False
+            context.user_data["quality"] = value
+            await q.edit_message_text(f"⚡ Quality set to {value}p")
 
-    elif q.data == "back":
-        await q.edit_message_text("🏠 Main Menu")
+    # 🔙 back button
+    elif data == "back":
+        await q.edit_message_text(
+            "🏠 Main Menu\n\n✨ اختر من القائمة",
+        )
+
+    # 🛡 fallback (prevents dead buttons)
+    else:
+        await q.edit_message_text("⚠️ Invalid action")
 
 
 # ==========================
-# MAIN
+# MAIN FUNCTION
 # ==========================
 def main():
     from database.user_repository import init_db
@@ -85,12 +103,20 @@ def main():
         .build()
     )
 
-    # handlers
+    # ==========================
+    # USER HANDLERS
+    # ==========================
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+    # ==========================
+    # CALLBACK HANDLER
+    # ==========================
     app.add_handler(CallbackQueryHandler(callback))
 
-    # admin commands
+    # ==========================
+    # ADMIN COMMANDS
+    # ==========================
     app.add_handler(CommandHandler("stats", admin_stats))
     app.add_handler(CommandHandler("top", admin_top))
     app.add_handler(CommandHandler("broadcast", broadcast_cmd))
@@ -101,13 +127,21 @@ def main():
     app.add_handler(CommandHandler("unblock", unblock_user_cmd))
     app.add_handler(CommandHandler("metrics", admin_metrics_cmd))
 
-    print("=" * 50)
-    print(f"🤖 BOT: {BOT_USERNAME}")
-    print("🚀 STATUS: PRODUCTION READY")
-    print("=" * 50)
+    # ==========================
+    # START LOG
+    # ==========================
+    print("=" * 55)
+    print(f"🤖 BOT STARTED: {BOT_USERNAME}")
+    print("🚀 STATUS: PRODUCTION MODE")
+    print("⚡ CALLBACK FIXED")
+    print("🧠 ADMIN SYSTEM READY")
+    print("=" * 55)
 
     app.run_polling()
 
 
+# ==========================
+# RUN
+# ==========================
 if __name__ == "__main__":
     main()
