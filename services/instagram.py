@@ -20,8 +20,8 @@ async def download_instagram(url: str, quality: str = "720", audio: bool = False
         if os.path.exists("cookies.txt"):
             opts["cookiefile"] = "cookies.txt"
 
-        # إضافة impersonate
-        opts["impersonate"] = "chrome-120"
+        # من غير impersonate
+        # opts["impersonate"] = "chrome-120"
 
         if audio:
             opts.update({
