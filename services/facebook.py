@@ -1,7 +1,7 @@
 # services/facebook.py
 import os
 import yt_dlp
-from config import DOWNLOADS_PATH, COOKIES_FILE
+from config import DOWNLOADS_PATH
 
 
 async def download_facebook(url: str, quality: str = "720", audio: bool = False):
@@ -13,9 +13,12 @@ async def download_facebook(url: str, quality: str = "720", audio: bool = False)
             "outtmpl": f"{DOWNLOADS_PATH}/facebook_%(id)s.%(ext)s",
             "quiet": True,
             "no_warnings": True,
+            "ignoreerrors": True,
             "format": "best",
-            "cookiefile": COOKIES_FILE if os.path.exists(COOKIES_FILE) else None,
         }
+
+        if os.path.exists("cookies.txt"):
+            opts["cookiefile"] = "cookies.txt"
 
         if audio:
             opts.update({
