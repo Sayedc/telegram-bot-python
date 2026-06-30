@@ -67,7 +67,7 @@ class Downloader:
                 info = ydl.extract_info(url, download=True)
 
                 if info is None:
-                    return {"success": False, "error": "⚠️ الرابط غير صحيح أو غير مدعوم"}
+                    return {"success": False, "error": "⚠️ الرابط غير صحيح"}
 
                 file_path = ydl.prepare_filename(info)
 
@@ -88,7 +88,7 @@ class Downloader:
             error_msg = str(e)
             if "Sign in to confirm" in error_msg:
                 return {"success": False, "error": "⚠️ يوتيوب طلب تسجيل دخول\n💡 حمّل ملف cookies.txt"}
-            return {"success": False, "error": f"⚠️ خطأ في التحميل: {error_msg[:100]}"}
+            return {"success": False, "error": f"⚠️ خطأ: {error_msg[:100]}"}
 
         except Exception as e:
             return {"success": False, "error": f"⚠️ حدث خطأ: {str(e)[:100]}"}
@@ -113,13 +113,14 @@ class Downloader:
             "noplaylist": True,
         }
 
-        # استخدام الكوكيز لو موجودة
-        cookies_file = "cookies.txt"
-        if os.path.exists(cookies_file):
-            opts["cookiefile"] = cookies_file
+        # مسار الكوكيز المضمون
+        cookies_path = os.path.join(os.path.dirname(__file__), "cookies.txt")
+        if os.path.exists(cookies_path):
+            opts["cookiefile"] = cookies_path
+        else:
+            print("⚠️ ملف cookies.txt غير موجود")
 
-        # معاملة خاصة لتيك توك
-        if url and ("tiktok" in url):
+        if url and "tiktok" in url:
             opts["extractor_args"] = {
                 "tiktok": {
                     "without_watermark": ["true"],
