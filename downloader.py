@@ -90,3 +90,10 @@ class Downloader:
     async def download_url(self, url: str, quality="720", audio=False):
         """API أبسط للاستخدام في باقي المشروع"""
         return await self.download(url, quality, audio)
+
+from config import DOWNLOADS_PATH, MAX_CONCURRENT_DOWNLOADS
+
+downloader = Downloader(
+    download_path=DOWNLOADS_PATH,
+    max_concurrent=MAX_CONCURRENT_DOWNLOADS
+)
