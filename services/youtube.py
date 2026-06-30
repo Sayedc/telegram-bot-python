@@ -31,6 +31,9 @@ async def download_youtube(url: str, quality: str = "720", audio: bool = False):
         if os.path.exists("cookies.txt"):
             opts["cookiefile"] = "cookies.txt"
 
+        # من غير impersonate
+        # opts["impersonate"] = "chrome-120"
+
         if audio:
             opts.update({
                 "format": "bestaudio/best",
@@ -66,4 +69,4 @@ async def download_youtube(url: str, quality: str = "720", audio: bool = False):
         return {
             "success": False,
             "error": f"YouTube download failed: {str(e)[:100]}",
-        }
+                }
