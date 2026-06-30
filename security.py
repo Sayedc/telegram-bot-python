@@ -1,46 +1,24 @@
-from database.user_repository import (
-    load_data,
-    save_data,
-    is_blocked as db_is_blocked
-)
-
-# ==========================
-# إحصائيات الحماية
-# ==========================
+from database.user_repository import load_data, save_data, is_blocked as db_is_blocked
 
 _failed_attempts = {}
 _blocked_attempts = 0
 
 
-# ==========================
-# المستخدم محظور؟
-# ==========================
-
 def is_blocked(user_id):
     return db_is_blocked(user_id)
 
 
-# ==========================
-# التحقق من الرابط
-# ==========================
-
 def is_safe_url(url):
     if not url:
-        return False
+        return False, "Empty URL"
 
     url = url.lower()
 
-    allowed = (
-        "http://",
-        "https://"
-    )
+    if url.startswith(("http://", "https://")):
+        return True, "OK"
 
-    return url.startswith(allowed)
+    return False, "Invalid URL"
 
-
-# ==========================
-# تسجيل محاولة فاشلة
-# ==========================
 
 def record_failed_attempt(user_id):
     global _blocked_attempts
@@ -59,27 +37,11 @@ def record_failed_attempt(user_id):
         _blocked_attempts += 1
 
 
-# ==========================
-# تصفير عداد المحاولات
-# ==========================
-
-def reset_failed_attempts(user_id):
-    uid = str(user_id)
-
-    if uid in _failed_attempts:
-        del _failed_attempts[uid]
-
-
-# ==========================
-# إحصائيات الأدمن
-# ==========================
-
 def get_failed_stats():
     data = load_data()
 
     blocked_users = sum(
-        1
-        for u in data["users"].values()
+        1 for u in data["users"].values()
         if u.get("blocked", False)
     )
 
