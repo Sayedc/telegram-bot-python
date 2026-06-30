@@ -29,7 +29,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = f"""
 🖤 *أهلاً {u.first_name}!*
 
-✨ {SIGNATURE} ✨
+"✨ BOT ✨"
 
 🌍 *البوت بينزل أي حاجة من أي موقع*
 
