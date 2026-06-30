@@ -20,7 +20,6 @@ def init_db():
 
 def load_data():
     init_db()
-
     with open(DB_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
 
@@ -28,10 +27,6 @@ def load_data():
 def save_data(data):
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
-
-
-def get_data():
-    return load_data()
 
 
 def get_users():
@@ -44,7 +39,6 @@ def get_user(user_id):
 
 def add_user(user_id, name="Unknown"):
     data = load_data()
-
     uid = str(user_id)
 
     if uid not in data["users"]:
@@ -55,7 +49,6 @@ def add_user(user_id, name="Unknown"):
             "joined": str(datetime.now()),
             "last_seen": str(datetime.now())
         }
-
         data["total"] += 1
 
     save_data(data)
@@ -63,7 +56,6 @@ def add_user(user_id, name="Unknown"):
 
 def update_last_seen(user_id):
     data = load_data()
-
     uid = str(user_id)
 
     if uid in data["users"]:
@@ -72,20 +64,8 @@ def update_last_seen(user_id):
     save_data(data)
 
 
-def increase_downloads(user_id):
-    data = load_data()
-
-    uid = str(user_id)
-
-    if uid in data["users"]:
-        data["users"][uid]["downloads"] += 1
-
-    save_data(data)
-
-
 def block_user(user_id):
     data = load_data()
-
     uid = str(user_id)
 
     if uid in data["users"]:
@@ -96,7 +76,6 @@ def block_user(user_id):
 
 def unblock_user(user_id):
     data = load_data()
-
     uid = str(user_id)
 
     if uid in data["users"]:
@@ -107,8 +86,14 @@ def unblock_user(user_id):
 
 def is_blocked(user_id):
     user = get_user(user_id)
+    return user.get("blocked", False) if user else False
 
-    if not user:
-        return False
 
-    return user.get("blocked", False)
+def increase_downloads(user_id):
+    data = load_data()
+    uid = str(user_id)
+
+    if uid in data["users"]:
+        data["users"][uid]["downloads"] += 1
+
+    save_data(data)
