@@ -1,6 +1,4 @@
 # main.py - البوت الفاخر النهائي (النسخة المتطورة)
-async def post_init(app):
-    await downloader.start()
 import os
 import re
 import json
@@ -16,6 +14,10 @@ from handlers.message import handle_message
 from keyboards.main_keyboard import *
 from handlers.admin import *
 from config import BOT_TOKEN, ADMIN_IDS, MAX_FILE_SIZE_MB, DOWNLOADS_PATH
+
+# ==========     ==========
+async def post_init(app):
+    await downloader.start()
 
 # ========== استيراد الملفات الجديدة ==========
 from downloader import Downloader
