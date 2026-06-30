@@ -1,67 +1,60 @@
+# main.py - SK Download Bot (Stable Production Version)
+
 import os
-import asyncio
 from datetime import datetime
 
 from telegram.ext import (
     Application,
     MessageHandler,
     CallbackQueryHandler,
-    CommandHandler,
     filters,
 )
 
-# ========== handlers ==========
+# ================= handlers =================
 from handlers.start import start
 from handlers.message import handle_message
 
-# ========== keyboards ==========
-from keyboards.main_keyboard import main_keyboard, admin_keyboard
+# ================= keyboards =================
+from keyboards.main_keyboard import admin_keyboard, main_keyboard
 
-# ========== config ==========
+# ================= config =================
 from config import BOT_TOKEN, ADMIN_IDS, DOWNLOADS_PATH
 
-# ========== system ==========
+# ================= system =================
 from downloader import Downloader
 from metrics import Metrics
 from rate_limiter import RateLimiter
 
-# ========== database ==========
+# ================= database =================
 from database.user_repository import init_db
 
-# ==========================
-# helpers
-# ==========================
-def is_admin(user_id):
+# ================= bot identity =================
+BOT_NAME = "@SK_Download_bot"
+SIGNATURE = "✨ ✨ 𝓐𝓵𝓱𝓪𝔀𝔂 ✨ ✨"
+
+START_TIME = datetime.now()
+
+# ================= helpers =================
+def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
 
 
-# ==========================
-# instances
-# ==========================
+# ================= instances =================
 downloader = Downloader(DOWNLOADS_PATH, max_concurrent=3)
 metrics = Metrics()
 rate_limiter = RateLimiter(max_requests=10, time_window=60)
 
-START_TIME = datetime.now()
-SIGNATURE = "✨ BOT ✨"
 
-
-# ==========================
-# init folder
-# ==========================
+# ================= init folders =================
 os.makedirs(DOWNLOADS_PATH, exist_ok=True)
 
 
-# ==========================
-# downloader startup
-# ==========================
+# ================= post init =================
 async def post_init(app):
     await downloader.start()
 
 
-# ==========================
-# callback handler
-# ==========================
+# ================= callback handler =================
 async def callback(update, context):
     q = update.callback_query
     await q.answer()
@@ -84,19 +77,12 @@ async def callback(update, context):
         await q.edit_message_text("🏠 Main Menu", reply_markup=kb)
 
 
-# ==========================
-# uptime helper
-# ==========================
-def get_uptime():
-    delta = datetime.now() - START_TIME
-    return str(delta).split('.')[0]
-
-
-# ==========================
-# bot main
-# ==========================
+# ================= main =================
 def main():
     init_db()
+
+    if not BOT_TOKEN:
+        raise ValueError("BOT_TOKEN is missing in environment variables")
 
     app = (
         Application.builder()
@@ -105,20 +91,19 @@ def main():
         .build()
     )
 
-    # ========== handlers ==========
-    app.add_handler(CommandHandler("start", start))
+    # handlers
     app.add_handler(CallbackQueryHandler(callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(MessageHandler(filters.COMMAND, start))
 
     print("=" * 40)
-    print("BOT STARTED SUCCESSFULLY")
+    print(f"🚀 {BOT_NAME} STARTED SUCCESSFULLY")
+    print(f"{SIGNATURE}")
     print("=" * 40)
 
     app.run_polling()
 
 
-# ==========================
-# run
-# ==========================
+# ================= run =================
 if __name__ == "__main__":
     main()
