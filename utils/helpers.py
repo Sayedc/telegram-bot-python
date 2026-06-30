@@ -129,3 +129,15 @@ def get_random_success_text():
 
     return random.choice(texts)
 
+
+def get_random_error_text():
+    texts = [
+        "❌ حصل خطأ، حاول تاني",
+        "⚠️ فشل في العملية",
+        "🚫 حصلت مشكلة غير متوقعة",
+        "💥 error occurred",
+        "😓 لم يتم التنفيذ",
+        "🔄 حاول مرة أخرى لاحقًا"
+    ]
+
+    return random.choice(texts)
