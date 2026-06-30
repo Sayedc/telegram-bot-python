@@ -33,7 +33,12 @@ COOKIES_FILE = os.path.join(BASE_DIR, "cookies.txt")
 LOGS_PATH = os.path.join(BASE_DIR, "logs")
 
 os.makedirs(DOWNLOADS_PATH, exist_ok=True)
-os.makedirs(LOGS_PATH, exist_ok=True)
+if os.path.exists(LOGS_PATH):
+    if os.path.isfile(LOGS_PATH):
+        os.remove(LOGS_PATH)
+        os.makedirs(LOGS_PATH)
+else:
+    os.makedirs(LOGS_PATH)
 
 # ==========================================
 # Limits
