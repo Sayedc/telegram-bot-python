@@ -2,7 +2,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from database.user_repository import add_user, update_last_seen
-from utils.keyboards import admin_keyboard, main_keyboard
+from keyboards.main_keyboard import main_keyboard, admin_keyboard
 from utils.messages import WELCOME_RESPONSES, get_response
 from security import is_blocked
 from config import ADMIN_IDS
