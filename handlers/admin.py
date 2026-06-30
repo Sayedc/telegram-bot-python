@@ -1,109 +1,157 @@
-import os
 import asyncio
-import json
-import shutil
-from datetime import datetime
 
 from config import SIGNATURE, DOWNLOADS_PATH
 from downloader import downloader
 from metrics import metrics
+
 from database.user_repository import (
     get_users,
     block_user,
-    unblock_user
+    unblock_user,
 )
 
-from security import get_failed_stats
+# لازم تكون موجودة في main (هنستوردها وقت التشغيل)
+try:
+    from main import is_admin, get_uptime, START_TIME
+except:
+    is_admin = lambda x: False
+    get_uptime = lambda: "Unknown"
 
 
+# ==========================
+# Helpers
+# ==========================
+def safe_get_stats():
+    try:
+        return downloader.get_stats()
+    except:
+        return {
+            "queue_size": 0,
+            "active": 0,
+            "success": 0,
+            "failed": 0,
+        }
+
+
+# ==========================
+# STATS
+# ==========================
 async def admin_stats(update, context):
     if not is_admin(update.effective_user.id):
         return
 
-    with open(DB_FILE, 'r') as f:
-        data = json.load(f)
+    users = get_users()
+    blocked = sum(1 for u in users.values() if u.get("blocked"))
 
-    blocked_count = sum(1 for u in data["users"].values() if u.get("blocked", False))
-    downloader_stats = downloader.get_stats()
+    stats = safe_get_stats()
 
-    await update.message.reply_text(
-        f"👑 إحصائيات البوت\n"
-        f"👥 المستخدمين: {len(data['users'])}\n"
-        f"🚫 محظورين: {blocked_count}\n"
-        f"📥 إجمالي التحميلات: {data['total']}\n"
-        f"📈 اليوم: {data['daily']}\n"
-        f"⏱️ وقت التشغيل: {get_uptime()}\n\n"
-        f"📊 تحميلات:\n"
-        f"⏳ قائمة الانتظار: {downloader_stats['queue_size']}\n"
-        f"⚡ نشط: {downloader_stats['active']}\n"
-        f"✅ نجاح: {downloader_stats['success']}\n"
-        f"❌ فشل: {downloader_stats['failed']}\n\n"
-        f"{SIGNATURE}",
-        parse_mode='Markdown'
-    )
+    text = f"""
+✨✨ 𝓐𝓵𝓱𝓪𝔀𝔂 ADMIN PANEL ✨✨
 
+👑 BOT STATUS: ACTIVE
+⏱️ Uptime: {get_uptime()}
 
-async def admin_top(update, context):
-    if not is_admin(update.effective_user.id):
-        return
+👥 Users: {len(users)}
+🚫 Blocked: {blocked}
 
-    top_users = get_top_users(10)
+📥 Downloads:
+• Queue: {stats['queue_size']}
+• Active: {stats['active']}
+• Success: {stats['success']}
+• Failed: {stats['failed']}
 
-    if not top_users:
-        await update.message.reply_text("لا يوجد مستخدمين")
-        return
-
-    text = "🏆 ترتيب المستخدمين\n\n"
-
-    for i, (uid, info) in enumerate(top_users, 1):
-        status = "🚫" if info.get("blocked", False) else "✅"
-        text += f"{i}- {uid} {status} - {info.get('downloads', 0)} تحميل\n"
+━━━━━━━━━━━━━━
+{SIGNATURE}
+"""
 
     await update.message.reply_text(text)
 
 
+# ==========================
+# TOP USERS
+# ==========================
+async def admin_top(update, context):
+    if not is_admin(update.effective_user.id):
+        return
+
+    users = get_users()
+
+    sorted_users = sorted(
+        users.items(),
+        key=lambda x: x[1].get("downloads", 0),
+        reverse=True
+    )[:10]
+
+    if not sorted_users:
+        await update.message.reply_text("🚫 No users yet")
+        return
+
+    text = "🏆 TOP USERS\n\n"
+
+    for i, (uid, info) in enumerate(sorted_users, 1):
+        status = "🚫" if info.get("blocked") else "✅"
+        text += f"{i}. {uid} {status} | {info.get('downloads', 0)} downloads\n"
+
+    text += f"\n{SIGNATURE}"
+
+    await update.message.reply_text(text)
+
+
+# ==========================
+# BROADCAST
+# ==========================
 async def broadcast_cmd(update, context):
     if not is_admin(update.effective_user.id):
         return
 
-    msg = ' '.join(context.args)
+    msg = " ".join(context.args)
 
     if not msg:
-        await update.message.reply_text("اكتب الرسالة")
+        await update.message.reply_text("⚠️ Send message text")
         return
 
     users = get_users()
+
     sent = 0
 
     for uid in users:
         try:
-            await context.bot.send_message(int(uid), msg)
+            await context.bot.send_message(chat_id=int(uid), text=msg)
             sent += 1
             await asyncio.sleep(0.05)
         except:
             pass
 
-    await update.message.reply_text(f"تم الإرسال لـ {sent} مستخدم")
+    await update.message.reply_text(f"✅ Sent to {sent} users")
 
 
+# ==========================
+# USERS LIST
+# ==========================
 async def users_cmd(update, context):
     if not is_admin(update.effective_user.id):
         return
 
-    with open(DB_FILE, 'r') as f:
-        data = json.load(f)
+    users = get_users()
 
-    text = "المستخدمين:\n"
+    text = "👥 USERS LIST\n\n"
 
-    for uid, info in list(data["users"].items())[:30]:
-        text += f"{uid} - {info.get('downloads', 0)}\n"
+    for i, (uid, info) in enumerate(list(users.items())[:30], 1):
+        text += f"{i}. {uid} | {info.get('downloads', 0)} downloads\n"
+
+    text += f"\n{SIGNATURE}"
 
     await update.message.reply_text(text)
 
 
+# ==========================
+# CLEAR FILES
+# ==========================
 async def clear_cmd(update, context):
     if not is_admin(update.effective_user.id):
         return
+
+    import os
 
     count = 0
 
@@ -114,68 +162,22 @@ async def clear_cmd(update, context):
         except:
             pass
 
-    await update.message.reply_text(f"تم حذف {count} ملف")
+    await update.message.reply_text(f"🧹 Deleted {count} files")
 
 
-async def delete_all_users_cmd(update, context):
-    if not is_admin(update.effective_user.id):
-        return
-
-    admin_id = str(update.effective_user.id)
-
-    with open(DB_FILE, 'w') as f:
-        json.dump({
-            "users": {
-                admin_id: {
-                    "name": "admin",
-                    "first_seen": str(datetime.now()),
-                    "last_seen": str(datetime.now()),
-                    "downloads": 0,
-                    "fav_platform": "None",
-                    "platforms": {},
-                    "blocked": False
-                }
-            },
-            "total": 0,
-            "daily": 0,
-            "last_date": str(datetime.now().date())
-        }, f, indent=2)
-
-    await update.message.reply_text("تم حذف كل المستخدمين")
-
-
-async def uptime_cmd(update, context):
-    if not is_admin(update.effective_user.id):
-        return
-
-    await update.message.reply_text(get_uptime())
-
-
-async def backup_cmd(update, context):
-    if not is_admin(update.effective_user.id):
-        return
-
-    backup_file = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-
-    shutil.copy(DB_FILE, backup_file)
-
-    await update.message.reply_document(open(backup_file, 'rb'))
-
-    os.remove(backup_file)
-
-
+# ==========================
+# BLOCK / UNBLOCK
+# ==========================
 async def block_user_cmd(update, context):
     if not is_admin(update.effective_user.id):
         return
 
     if not context.args:
-        await update.message.reply_text("block <user_id>")
+        await update.message.reply_text("Usage: block <user_id>")
         return
 
-    user_id = context.args[0]
-
-    block_user(user_id)
-    await update.message.reply_text("تم الحظر")
+    block_user(context.args[0])
+    await update.message.reply_text("🚫 User blocked")
 
 
 async def unblock_user_cmd(update, context):
@@ -183,30 +185,38 @@ async def unblock_user_cmd(update, context):
         return
 
     if not context.args:
-        await update.message.reply_text("unblock <user_id>")
+        await update.message.reply_text("Usage: unblock <user_id>")
         return
 
-    user_id = context.args[0]
-
-    unblock_user(user_id)
-    await update.message.reply_text("تم فك الحظر")
+    unblock_user(context.args[0])
+    await update.message.reply_text("✅ User unblocked")
 
 
+# ==========================
+# METRICS
+# ==========================
 async def admin_metrics_cmd(update, context):
     if not is_admin(update.effective_user.id):
         return
 
     summary = metrics.get_summary()
-    downloader_stats = downloader.get_stats()
-    failed_stats = get_failed_stats()
+    stats = safe_get_stats()
 
-    await update.message.reply_text(
-        f"📊 إحصائيات\n"
-        f"⏱️ استجابة: {summary['avg_response']}\n"
-        f"📥 تحميل: {summary['avg_download']}\n"
-        f"📈 نجاح: {summary['success_rate']}\n"
-        f"⚠️ أخطاء: {summary['common_error']}\n"
-        f"⏳ Queue: {downloader_stats['queue_size']}\n"
-        f"❌ Fail: {downloader_stats['failed']}\n"
-        f"🚫 Blocked: {failed_stats['blocked_users']}\n"
-  )
+    text = f"""
+📊 SYSTEM METRICS
+
+⚡ Response: {summary['avg_response']}s
+📥 Download: {summary['avg_download']}s
+📈 Success Rate: {summary['success_rate']}%
+
+🔥 Active Users: {summary['active_users']}
+⚠️ Common Error: {summary['common_error']}
+
+📦 Queue: {stats['queue_size']}
+❌ Failed: {stats['failed']}
+
+━━━━━━━━━━━━━━
+{SIGNATURE}
+"""
+
+    await update.message.reply_text(text)
