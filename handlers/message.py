@@ -3,9 +3,9 @@ import os
 from datetime import datetime
 
 from config import SIGNATURE
-from core import downloader, metrics, rate_limiter
+from core import downloader, metrics
 from utils.helpers import extract_link, get_platform
-from utils.messages import get_random_processing_text, get_random_success_text, get_random_error_text
+from utils.messages import get_random_processing_text, get_random_success_text
 from database.user_repository import increase_downloads
 
 
@@ -23,7 +23,7 @@ async def handle_message(update, context):
     audio = context.user_data.get("audio", False)
 
     msg = await update.message.reply_text(
-        f"{get_random_processing_text()}\n📱 {platform}"
+        f"🔄 جاري التحميل...\n📱 {platform}\n⏳ يرجى الانتظار..."
     )
 
     start_time = datetime.now()
@@ -69,4 +69,4 @@ async def handle_message(update, context):
         await msg.delete()
 
     except Exception as e:
-        await msg.edit_text(f"❌ حدث خطأ أثناء التحميل\n```\n{str(e)[:100]}\n```")
+        await msg.edit_text(f"❌ حدث خطأ أثناء التحميل\n```\n{str(e)[:200]}\n```")
