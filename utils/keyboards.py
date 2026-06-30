@@ -1,28 +1,53 @@
-
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 
 # =========================
-# Main Keyboard
+# MAIN KEYBOARD (PRO UI)
 # =========================
 def main_keyboard():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎬 تحميل", callback_data="help_video")],
-        [InlineKeyboardButton("🎵 صوت", callback_data="help_audio")],
-        [InlineKeyboardButton("📊 إحصائيات", callback_data="my_stats")],
-        [InlineKeyboardButton("⚙️ المساعدة", callback_data="help")]
+        # Row 1 (Primary Action)
+        [
+            InlineKeyboardButton("🎬 تحميل فيديو", callback_data="help_video"),
+            InlineKeyboardButton("🎵 تحميل صوت", callback_data="help_audio"),
+        ],
+
+        # Row 2 (Info)
+        [
+            InlineKeyboardButton("📊 إحصائياتي", callback_data="my_stats"),
+        ],
+
+        # Row 3 (Support)
+        [
+            InlineKeyboardButton("⚙️ المساعدة", callback_data="help"),
+        ]
     ])
 
 
 # =========================
-# Admin Keyboard
+# ADMIN KEYBOARD (PRO UI)
 # =========================
 def admin_keyboard():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("📊 Stats", callback_data="admin_stats")],
-        [InlineKeyboardButton("👥 Users", callback_data="admin_users")],
-        [InlineKeyboardButton("🏆 Top", callback_data="admin_top")],
-        [InlineKeyboardButton("📢 Broadcast", callback_data="admin_broadcast")],
-        [InlineKeyboardButton("🧹 Clear", callback_data="admin_clear")],
-        [InlineKeyboardButton("🔙 Back", callback_data="back")]
+        # Row 1
+        [
+            InlineKeyboardButton("📊 Stats", callback_data="admin_stats"),
+            InlineKeyboardButton("🏆 Top", callback_data="admin_top"),
+        ],
+
+        # Row 2
+        [
+            InlineKeyboardButton("👥 Users", callback_data="admin_users"),
+            InlineKeyboardButton("📢 Broadcast", callback_data="admin_broadcast"),
+        ],
+
+        # Row 3
+        [
+            InlineKeyboardButton("🧹 Clear", callback_data="admin_clear"),
+        ],
+
+        # Row 4 (Back separated for UX)
+        [
+            InlineKeyboardButton("🔙 Back", callback_data="back"),
+        ]
     ])
