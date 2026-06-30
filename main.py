@@ -12,7 +12,7 @@ import yt_dlp
 from handlers.start import start
 from handlers.message import handle_message
 from keyboards.main_keyboard import *
-
+from handlers.admin import *
 from config import BOT_TOKEN, ADMIN_IDS, MAX_FILE_SIZE_MB, DOWNLOADS_PATH
 
 # ========== استيراد الملفات الجديدة ==========
