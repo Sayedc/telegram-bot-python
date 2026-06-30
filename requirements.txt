@@ -1,5 +1,5 @@
 python-telegram-bot==20.6
-yt-dlp>=2025.06.22
+yt-dlp @ git+https://github.com/yt-dlp/yt-dlp.git
 regex==2023.12.25
 python-dotenv==1.0.0
 aiofiles==23.2.1
