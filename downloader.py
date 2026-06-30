@@ -50,7 +50,7 @@ class Downloader:
 
             except asyncio.TimeoutError:
                 self.failed += 1
-                return {"success": False, "error": "⚠️ التحميل استغرق وقتاً طويلاً (تم إلغاؤه)"}
+                return {"success": False, "error": "⚠️ التحميل استغرق وقتاً طويلاً"}
 
             except Exception as e:
                 self.failed += 1
@@ -60,7 +60,7 @@ class Downloader:
                 self.active -= 1
 
     def _download_sync(self, url, quality, audio):
-        opts = self._build_opts(quality, audio)
+        opts = self._build_opts(quality, audio, url)
 
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
@@ -75,23 +75,25 @@ class Downloader:
                     file_path = os.path.splitext(file_path)[0] + ".mp3"
 
                 if not os.path.exists(file_path):
-                    return {"success": False, "error": "⚠️ الملف لم يتم تحميله بنجاح"}
+                    return {"success": False, "error": "⚠️ الملف لم يتم تحميله"}
 
                 return {
                     "success": True,
                     "file_path": file_path,
                     "title": info.get("title", "Unknown"),
                     "duration": info.get("duration", 0),
-                    "timestamp": datetime.now().isoformat(),
                 }
 
         except yt_dlp.utils.DownloadError as e:
-            return {"success": False, "error": f"⚠️ خطأ في التحميل: {str(e)[:100]}"}
+            error_msg = str(e)
+            if "Sign in to confirm" in error_msg:
+                return {"success": False, "error": "⚠️ يوتيوب طلب تسجيل دخول\n💡 حمّل ملف cookies.txt"}
+            return {"success": False, "error": f"⚠️ خطأ في التحميل: {error_msg[:100]}"}
 
         except Exception as e:
             return {"success": False, "error": f"⚠️ حدث خطأ: {str(e)[:100]}"}
 
-    def _build_opts(self, quality, audio):
+    def _build_opts(self, quality, audio, url=None):
         quality_map = {
             "144": "worst[height<=144]",
             "240": "best[height<=240]",
@@ -116,8 +118,13 @@ class Downloader:
         if os.path.exists(cookies_file):
             opts["cookiefile"] = cookies_file
 
-        # من غير impersonate
-        # opts["impersonate"] = "chrome-120"
+        # معاملة خاصة لتيك توك
+        if url and ("tiktok" in url):
+            opts["extractor_args"] = {
+                "tiktok": {
+                    "without_watermark": ["true"],
+                }
+            }
 
         if audio:
             opts.update({
