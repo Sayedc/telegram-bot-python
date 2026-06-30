@@ -1,7 +1,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from config import SIGNATURE
+from config import BOT_TOKEN, ADMIN_IDS
 from database.user_repository import add_user, update_last_seen
 from utils.keyboards import admin_keyboard, main_keyboard
 from utils.messages import WELCOME_RESPONSES, get_response
