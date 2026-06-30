@@ -1,16 +1,9 @@
-# main.py - البوت الفاخر النهائي (منظم واحترافي)
+# main.py - Clean Production Version
 
 import os
-import re
-import json
 import asyncio
-import random
-import shutil
 from datetime import datetime
 
-import yt_dlp
-
-from telegram import Update
 from telegram.ext import (
     Application,
     MessageHandler,
@@ -18,61 +11,58 @@ from telegram.ext import (
     filters,
 )
 
-# ========= handlers =========
+# ========== handlers ==========
 from handlers.start import start
 from handlers.message import handle_message
 from handlers.admin import *
 
-# ========= keyboards =========
+# ========== keyboards ==========
 from keyboards.main_keyboard import *
 
-# ========= config =========
+# ========== config ==========
 from config import BOT_TOKEN, ADMIN_IDS, DOWNLOADS_PATH
 
-# ========= system modules =========
+# ========== system ==========
 from downloader import Downloader
 from metrics import Metrics
 from rate_limiter import RateLimiter
 
-# ========= database =========
-from database.user_repository import *
+# ========== database ==========
+from database.user_repository import init_db
 
 # ==========================
-# helper functions
+# helpers
 # ==========================
 def is_admin(user_id):
     return user_id in ADMIN_IDS
 
 
 # ==========================
-# Downloader instance
+# instances
 # ==========================
 downloader = Downloader(DOWNLOADS_PATH, max_concurrent=3)
 metrics = Metrics()
 rate_limiter = RateLimiter(max_requests=10, time_window=60)
 
-# ==========================
-# Init download folder
-# ==========================
-if os.path.isfile(DOWNLOADS_PATH):
-    os.remove(DOWNLOADS_PATH)
+START_TIME = datetime.now()
+SIGNATURE = "✨ BOT ✨"
 
+
+# ==========================
+# init folder
+# ==========================
 os.makedirs(DOWNLOADS_PATH, exist_ok=True)
 
-START_TIME = datetime.now()
-
-SIGNATURE = "✨ 𝓐𝓵𝓱𝓪𝔀𝔂 ✨"
-
 
 # ==========================
-# post_init (تشغيل downloader)
+# downloader startup
 # ==========================
 async def post_init(app):
     await downloader.start()
 
 
 # ==========================
-# Callback Handler
+# callback handler
 # ==========================
 async def callback(update, context):
     q = update.callback_query
@@ -81,24 +71,23 @@ async def callback(update, context):
     user_id = update.effective_user.id
 
     if q.data.startswith("q_"):
-        val = q.data[2:]
+        value = q.data[2:]
 
-        if val == "audio":
+        if value == "audio":
             context.user_data["audio"] = True
-            await q.edit_message_text("🎵 وضع الصوت مفعل")
-
+            await q.edit_message_text("🎵 Audio mode ON")
         else:
-            context.user_data["quality"] = val
+            context.user_data["quality"] = value
             context.user_data["audio"] = False
-            await q.edit_message_text(f"⚡ الجودة {val}p")
+            await q.edit_message_text(f"⚡ Quality: {value}p")
 
     elif q.data == "back":
         kb = admin_keyboard() if is_admin(user_id) else main_keyboard()
-        await q.edit_message_text("🖤 القائمة الرئيسية", reply_markup=kb)
+        await q.edit_message_text("🏠 Main Menu", reply_markup=kb)
 
 
 # ==========================
-# Bot Startup
+# bot main
 # ==========================
 def main():
     init_db()
@@ -110,31 +99,13 @@ def main():
         .build()
     )
 
-    # ===== handlers =====
+    # handlers
     app.add_handler(CallbackQueryHandler(callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("=" * 50)
-    print("✨ BOT STARTED ✨")
-    print(f"👑 ADMINS: {ADMIN_IDS}")
-    print("🚀 READY")
-    print("=" * 50)
-
-    app.run_polling()
-
-
-# ==========================
-# run
-# ==========================
-if __name__ == "__main__":
-    main()    app.add_handler(CallbackQueryHandler(callback))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
-    print("=" * 50)
-    print("✨ BOT STARTED ✨")
-    print(f"👑 ADMINS: {ADMIN_IDS}")
-    print("🚀 READY")
-    print("=" * 50)
+    print("=" * 40)
+    print("BOT STARTED SUCCESSFULLY")
+    print("=" * 40)
 
     app.run_polling()
 
