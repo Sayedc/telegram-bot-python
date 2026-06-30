@@ -16,15 +16,6 @@ from database.user_repository import (
 from security import get_failed_stats
 
 
-# لازم تكون الدوال دي موجودة في main أو utils (هنظبطها بعدين)
-from main import (
-    is_admin,
-    get_uptime,
-    get_top_users,
-    DB_FILE
-)
-
-
 async def admin_stats(update, context):
     if not is_admin(update.effective_user.id):
         return
