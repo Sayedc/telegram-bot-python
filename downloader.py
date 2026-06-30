@@ -34,7 +34,6 @@ class Downloader:
         async with self.semaphore:
             self.active += 1
             try:
-                # استخدام run_in_executor مع timeout
                 loop = asyncio.get_event_loop()
                 result = await asyncio.wait_for(
                     loop.run_in_executor(
@@ -44,7 +43,7 @@ class Downloader:
                         quality,
                         audio
                     ),
-                    timeout=60  # 60 ثانية حد أقصى
+                    timeout=120
                 )
                 self.success += 1
                 return result
@@ -75,7 +74,6 @@ class Downloader:
                 if audio:
                     file_path = os.path.splitext(file_path)[0] + ".mp3"
 
-                # التأكد من وجود الملف
                 if not os.path.exists(file_path):
                     return {"success": False, "error": "⚠️ الملف لم يتم تحميله بنجاح"}
 
@@ -107,19 +105,19 @@ class Downloader:
 
         opts = {
             "outtmpl": os.path.join(self.download_path, "%(title)s.%(ext)s"),
-            "quiet": False,  # عشان نعرف الأخطاء
-            "no_warnings": False,
+            "quiet": True,
+            "no_warnings": True,
             "ignoreerrors": True,
             "noplaylist": True,
-            "verbose": True,  # عشان نعرف كل التفاصيل
         }
 
+        # استخدام الكوكيز لو موجودة
         cookies_file = "cookies.txt"
         if os.path.exists(cookies_file):
             opts["cookiefile"] = cookies_file
 
-        # محاولة تجاوز الحماية
-        opts["impersonate"] = "chrome-120"
+        # من غير impersonate
+        # opts["impersonate"] = "chrome-120"
 
         if audio:
             opts.update({
