@@ -1,17 +1,15 @@
 import os
 import asyncio
-from datetime import datetime
-
 import yt_dlp
-
-from config import DOWNLOADS_PATH, MAX_CONCURRENT_DOWNLOADS
+from datetime import datetime
+from collections import deque
 
 
 class Downloader:
-    def __init__(self, download_path=DOWNLOADS_PATH, max_concurrent=MAX_CONCURRENT_DOWNLOADS):
+    def __init__(self, download_path: str, max_concurrent: int = 3):
         self.download_path = download_path
         self.semaphore = asyncio.Semaphore(max_concurrent)
-
+        self.queue = deque()
         self.active = 0
         self.success = 0
         self.failed = 0
@@ -19,23 +17,25 @@ class Downloader:
         os.makedirs(self.download_path, exist_ok=True)
 
     async def start(self):
-        print("✅ Downloader Started")
+        self.started = True
+        print("🚀 Downloader Engine Started")
 
     def get_stats(self):
         return {
-            "queue_size": 0,
+            "queue_size": len(self.queue),
             "active": self.active,
             "success": self.success,
             "failed": self.failed,
         }
 
-    def _build_opts(self, quality="720", audio=False):
+    def _build_opts(self, quality="best", audio=False):
+
         if audio:
             return {
                 "format": "bestaudio/best",
-                "outtmpl": os.path.join(self.download_path, "%(title)s.%(ext)s"),
+                "outtmpl": f"{self.download_path}/%(title)s.%(ext)s",
                 "quiet": True,
-                "noplaylist": True,
+                "no_warnings": True,
                 "postprocessors": [{
                     "key": "FFmpegExtractAudio",
                     "preferredcodec": "mp3",
@@ -44,7 +44,7 @@ class Downloader:
             }
 
         quality_map = {
-            "144": "best[height<=144]",
+            "144": "worst[height<=144]",
             "240": "best[height<=240]",
             "360": "best[height<=360]",
             "480": "best[height<=480]",
@@ -52,67 +52,52 @@ class Downloader:
             "1080": "best[height<=1080]",
         }
 
+        fmt = quality_map.get(str(quality), "best")
+
         return {
-            "format": quality_map.get(str(quality), "best"),
+            "format": fmt,
             "merge_output_format": "mp4",
-            "outtmpl": os.path.join(self.download_path, "%(title)s.%(ext)s"),
+            "outtmpl": f"{self.download_path}/%(title)s.%(ext)s",
             "quiet": True,
-            "noplaylist": True,
+            "no_warnings": True,
         }
 
-    async def download(self, url, quality="720", audio=False):
+    async def download(self, url: str, quality="720", audio=False):
         async with self.semaphore:
             self.active += 1
-
             try:
-                loop = asyncio.get_running_loop()
-
+                loop = asyncio.get_event_loop()
                 result = await loop.run_in_executor(
                     None,
                     self._download_sync,
                     url,
                     quality,
-                    audio,
+                    audio
                 )
-
-                if result["success"]:
-                    self.success += 1
-                else:
-                    self.failed += 1
-
+                self.success += 1
                 return result
+
+            except Exception as e:
+                self.failed += 1
+                return {"success": False, "error": str(e)}
 
             finally:
                 self.active -= 1
 
-    async def download_url(self, url, quality="720", audio=False):
-        return await self.download(url, quality, audio)
-
     def _download_sync(self, url, quality, audio):
-        try:
-            opts = self._build_opts(quality, audio)
+        opts = self._build_opts(quality, audio)
 
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(url, download=True)
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            file_path = ydl.prepare_filename(info)
 
-                file_path = ydl.prepare_filename(info)
+            if audio:
+                file_path = os.path.splitext(file_path)[0] + ".mp3"
 
-                if audio:
-                    file_path = os.path.splitext(file_path)[0] + ".mp3"
-
-                return {
-                    "success": True,
-                    "file_path": file_path,
-                    "title": info.get("title", "Unknown"),
-                    "duration": info.get("duration", 0),
-                    "timestamp": datetime.now().isoformat(),
-                }
-
-        except Exception as e:
             return {
-                "success": False,
-                "error": str(e),
-            }
-
-
-downloader = Downloader()
+                "success": True,
+                "file_path": file_path,
+                "title": info.get("title", "Unknown"),
+                "duration": info.get("duration", 0),
+                "timestamp": datetime.now().isoformat(),
+        }
