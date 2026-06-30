@@ -24,6 +24,7 @@ from config import BOT_TOKEN, ADMIN_IDS, DOWNLOADS_PATH
 
 # ========== system ==========
 from downloader import Downloader
+downloader = Downloader(DOWNLOADS_PATH)
 from metrics import Metrics
 from rate_limiter import RateLimiter
 
