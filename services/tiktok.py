@@ -21,12 +21,12 @@ async def download_tiktok(url: str, quality: str = "720", audio: bool = False):
             },
         }
 
-        # إضافة impersonate عشان يتجاوز الحماية
-        opts["impersonate"] = "chrome-120"
-
         # استخدام الكوكيز لو موجودة
         if os.path.exists("cookies.txt"):
             opts["cookiefile"] = "cookies.txt"
+
+        # من غير impersonate
+        # opts["impersonate"] = "chrome-120"
 
         if audio:
             opts.update({
