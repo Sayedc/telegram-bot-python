@@ -64,3 +64,26 @@ async def get_video_info(url: str):
 
     except Exception:
         return None
+
+def get_platform(url: str):
+    url = url.lower()
+
+    if "tiktok" in url:
+        return "TikTok"
+    elif "youtube" in url or "youtu.be" in url:
+        return "YouTube"
+    elif "instagram" in url:
+        return "Instagram"
+    elif "facebook" in url or "fb.watch" in url:
+        return "Facebook"
+    elif "twitter" in url or "x.com" in url:
+        return "Twitter"
+    elif "soundcloud" in url:
+        return "SoundCloud"
+    elif "spotify" in url:
+        return "Spotify"
+    elif "deezer" in url:
+        return "Deezer"
+    else:
+        return "Website"
+
