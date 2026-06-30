@@ -29,6 +29,8 @@ from handlers.admin import (
     admin_metrics_cmd
 )
 
+from core import downloader, metrics, rate_limiter, is_admin, get_uptime
+
 # ==========================
 # CONFIG
 # ==========================
