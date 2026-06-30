@@ -27,23 +27,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     update_last_seen(u.id)
 
     text = f"""
-🖤 *أهلاً {u.first_name}!*
+🖤 أهلاً الحاوي و بطولي >666 ،! 🖤
 
-"✨ BOT ✨"
+✨ ✨ 𝓐𝓵𝓱𝓪𝔀𝔂 ✨ ✨
 
-🌍 *البوت بينزل أي حاجة من أي موقع*
+🌍 البوت بينزل أي حاجة من أي موقع
 
-📌 *المنصات المدعومة:*
-• TikTok
-• YouTube
-• Instagram
-• Facebook
-• Twitter
-• SoundCloud
-• Spotify
-• Deezer
+📌 المنصات المدعومة:
+• TikTok • YouTube • Instagram
+• Facebook • Twitter • SoundCloud
+• Spotify • Deezer • وأي موقع
 
-🔥 *أرسل أي رابط وسأقوم بتحميله*
+🔥 أرسل أي رابط وسأقوم بتحميله
+
+📌 البوت شغال على كل المواقع
+"""
 
 {get_response(WELCOME_RESPONSES, u.first_name)}
 """
