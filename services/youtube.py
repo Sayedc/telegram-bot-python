@@ -1,7 +1,7 @@
 # services/youtube.py
 import os
 import yt_dlp
-from config import DOWNLOADS_PATH, COOKIES_FILE
+from config import DOWNLOADS_PATH
 
 
 async def download_youtube(url: str, quality: str = "720", audio: bool = False):
@@ -17,7 +17,6 @@ async def download_youtube(url: str, quality: str = "720", audio: bool = False):
         "1080": "best[height<=1080]",
     }
 
-    # تحديد الصيغة المطلوبة
     fmt = quality_map.get(quality, "best[height<=720]")
 
     try:
@@ -25,8 +24,12 @@ async def download_youtube(url: str, quality: str = "720", audio: bool = False):
             "outtmpl": f"{DOWNLOADS_PATH}/%(title)s.%(ext)s",
             "quiet": True,
             "no_warnings": True,
-            "cookiefile": COOKIES_FILE if os.path.exists(COOKIES_FILE) else None,
+            "ignoreerrors": True,
+            "noplaylist": True,
         }
+
+        if os.path.exists("cookies.txt"):
+            opts["cookiefile"] = "cookies.txt"
 
         if audio:
             opts.update({
@@ -60,32 +63,7 @@ async def download_youtube(url: str, quality: str = "720", audio: bool = False):
             }
 
     except Exception as e:
-        # محاولة بديلة بأفضل جودة متاحة
-        try:
-            opts = {
-                "outtmpl": f"{DOWNLOADS_PATH}/%(title)s.%(ext)s",
-                "quiet": True,
-                "no_warnings": True,
-                "format": "best",
-                "merge_output_format": "mp4",
-                "cookiefile": COOKIES_FILE if os.path.exists(COOKIES_FILE) else None,
-            }
-
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                file_path = ydl.prepare_filename(info)
-
-                return {
-                    "success": True,
-                    "file_path": file_path,
-                    "title": info.get("title", "YouTube Video"),
-                    "duration": info.get("duration", 0),
-                    "platform": "YouTube",
-                    "quality": "best",
-                }
-
-        except Exception as e2:
-            return {
-                "success": False,
-                "error": f"YouTube download failed: {str(e2)[:100]}",
-            }
+        return {
+            "success": False,
+            "error": f"YouTube download failed: {str(e)[:100]}",
+        }
