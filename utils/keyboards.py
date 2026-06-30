@@ -2,52 +2,46 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 
 # =========================
-# MAIN KEYBOARD (PRO UI)
+# MAIN KEYBOARD (DASHBOARD STYLE)
 # =========================
 def main_keyboard():
     return InlineKeyboardMarkup([
-        # Row 1 (Primary Action)
+        # 🔥 Admin Panel (full width row)
+        [
+            InlineKeyboardButton("👑 لوحة الادمن", callback_data="admin_panel")
+        ],
+
+        # 🎯 Actions row 1
         [
             InlineKeyboardButton("🎬 تحميل فيديو", callback_data="help_video"),
-            InlineKeyboardButton("🎵 تحميل صوت", callback_data="help_audio"),
+            InlineKeyboardButton("🎵 استخراج الصوت", callback_data="help_audio"),
         ],
 
-        # Row 2 (Info)
+        # 🎯 Actions row 2
         [
+            InlineKeyboardButton("🎁 مشاركة البوت", callback_data="share_bot"),
             InlineKeyboardButton("📊 إحصائياتي", callback_data="my_stats"),
         ],
-
-        # Row 3 (Support)
-        [
-            InlineKeyboardButton("⚙️ المساعدة", callback_data="help"),
-        ]
     ])
 
 
 # =========================
-# ADMIN KEYBOARD (PRO UI)
+# ADMIN KEYBOARD (PRO STYLE)
 # =========================
 def admin_keyboard():
     return InlineKeyboardMarkup([
-        # Row 1
         [
             InlineKeyboardButton("📊 Stats", callback_data="admin_stats"),
             InlineKeyboardButton("🏆 Top", callback_data="admin_top"),
         ],
-
-        # Row 2
         [
             InlineKeyboardButton("👥 Users", callback_data="admin_users"),
             InlineKeyboardButton("📢 Broadcast", callback_data="admin_broadcast"),
         ],
-
-        # Row 3
         [
             InlineKeyboardButton("🧹 Clear", callback_data="admin_clear"),
         ],
-
-        # Row 4 (Back separated for UX)
         [
-            InlineKeyboardButton("🔙 Back", callback_data="back"),
+            InlineKeyboardButton("🔙 رجوع", callback_data="back"),
         ]
     ])
