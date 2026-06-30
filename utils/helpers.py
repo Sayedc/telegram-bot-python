@@ -1,6 +1,6 @@
 import re
 import yt_dlp
-
+import random
 
 # =========================
 # استخراج اللينك من أي نص
@@ -86,4 +86,20 @@ def get_platform(url: str):
         return "Deezer"
     else:
         return "Website"
+
+def get_random_sticker():
+    stickers = [
+        "🎉",
+        "🔥",
+        "⚡",
+        "💯",
+        "🚀",
+        "😂",
+        "👍",
+        "😍",
+        "💀",
+        "🤖"
+    ]
+
+    return random.choice(stickers)
 
