@@ -29,21 +29,6 @@ START_TIME = datetime.now()
 from database.user_repository import *
     return user_id in ADMIN_IDS
 
-def get_top_users(limit=10):
-    with open(DB_FILE, 'r') as f:
-        data = json.load(f)
-    users = data["users"]
-    sorted_users = sorted(users.items(), key=lambda x: x[1].get("downloads", 0), reverse=True)
-    return sorted_users[:limit]
-
-def get_uptime():
-    diff = datetime.now() - START_TIME
-    hours = diff.seconds // 3600
-    minutes = (diff.seconds % 3600) // 60
-    if hours > 0:
-        return f"{hours} ساعة, {minutes} دقيقة"
-    return f"{minutes} دقيقة"
-
 # ========== معلومات الفيديو ==========
 async def get_video_info(url):
     opts = {'quiet': True, 'no_warnings': True}
