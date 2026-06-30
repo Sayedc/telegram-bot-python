@@ -297,26 +297,6 @@ def main():
     
     app = Application.builder().token(BOT_TOKEN).build()
     
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("audio", audio_cmd))
-    app.add_handler(CommandHandler("stats", stats_cmd))
-    app.add_handler(CommandHandler("share", share_cmd))
-    app.add_handler(CommandHandler("top", top_cmd))
-    app.add_handler(CommandHandler("privacy", privacy_cmd))
-    app.add_handler(CommandHandler("delete_my_data", delete_my_data_cmd))
-    
-    app.add_handler(CommandHandler("adminstats", admin_stats))
-    app.add_handler(CommandHandler("admintop", admin_top))
-    app.add_handler(CommandHandler("broadcast", broadcast_cmd))
-    app.add_handler(CommandHandler("users", users_cmd))
-    app.add_handler(CommandHandler("clear", clear_cmd))
-    app.add_handler(CommandHandler("deleteusers", delete_all_users_cmd))
-    app.add_handler(CommandHandler("uptime", uptime_cmd))
-    app.add_handler(CommandHandler("backup", backup_cmd))
-    app.add_handler(CommandHandler("block", block_user_cmd))
-    app.add_handler(CommandHandler("unblock", unblock_user_cmd))
-    app.add_handler(CommandHandler("metrics", admin_metrics_cmd))
-    
     app.add_handler(CallbackQueryHandler(callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
