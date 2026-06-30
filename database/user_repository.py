@@ -1,3 +1,4 @@
+# database/user_repository.py
 import json
 import os
 from datetime import datetime
@@ -58,6 +59,9 @@ def add_user(user_id, name="Unknown"):
         data["users"][uid] = {
             "name": name,
             "downloads": 0,
+            "videos": 0,
+            "audio": 0,
+            "visits": 0,
             "blocked": False,
             "joined": str(datetime.now()),
             "last_seen": str(datetime.now())
@@ -73,6 +77,7 @@ def update_last_seen(user_id):
 
     if uid in data["users"]:
         data["users"][uid]["last_seen"] = str(datetime.now())
+        data["users"][uid]["visits"] = data["users"][uid].get("visits", 0) + 1
 
     save_data(data)
 
@@ -80,12 +85,17 @@ def update_last_seen(user_id):
 # =========================
 # DOWNLOAD STATS
 # =========================
-def increase_downloads(user_id):
+def increase_downloads(user_id, media_type="video"):
     data = load_data()
     uid = str(user_id)
 
     if uid in data["users"]:
         data["users"][uid]["downloads"] += 1
+        
+        if media_type == "video":
+            data["users"][uid]["videos"] = data["users"][uid].get("videos", 0) + 1
+        elif media_type == "audio":
+            data["users"][uid]["audio"] = data["users"][uid].get("audio", 0) + 1
 
     save_data(data)
 
@@ -119,9 +129,46 @@ def is_blocked(user_id):
 
 
 # =========================
-# STATS (FIX FOR ADMIN ERRORS)
+# DELETE USER DATA (NEW)
 # =========================
-def get_user_stats():
+def delete_user_data(user_id):
+    """حذف بيانات مستخدم معين"""
+    data = load_data()
+    uid = str(user_id)
+    
+    if uid in data["users"]:
+        downloads = data["users"][uid].get("downloads", 0)
+        del data["users"][uid]
+        data["total"] = max(0, data["total"] - downloads)
+        save_data(data)
+        return True
+    
+    return False
+
+
+# =========================
+# USER STATS (NEW)
+# =========================
+def get_user_stats(user_id):
+    """جلب إحصائيات مستخدم معين"""
+    user = get_user(user_id)
+    
+    if not user:
+        return None
+    
+    return {
+        "downloads": user.get("downloads", 0),
+        "videos": user.get("videos", 0),
+        "audio": user.get("audio", 0),
+        "visits": user.get("visits", 0),
+        "blocked": user.get("blocked", False),
+    }
+
+
+# =========================
+# STATS (FOR ADMIN)
+# =========================
+def get_admin_stats():
     data = load_data()
     users = data.get("users", {})
 
