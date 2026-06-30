@@ -19,7 +19,7 @@ from utils.helpers import (
 
 from config import DOWNLOADS_PATH
 
-downloader = Downloader(DOWNLOADS_PATH)
+downloader = Downloader(DOWNLOADS_PATH, max_concurrent=3)
 metrics = Metrics()
 rate_limiter = RateLimiter(max_requests=10, time_window=60)
 
