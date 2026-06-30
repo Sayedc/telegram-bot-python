@@ -116,3 +116,16 @@ def get_random_processing_text():
 
     return random.choice(texts)
 
+
+def get_random_success_text():
+    texts = [
+        "🎉 تم التحميل بنجاح!",
+        "🔥 جاهز يا بطل!",
+        "💯 اكتمل التحميل!",
+        "🚀 تمت العملية بنجاح!",
+        "✨ تم تجهيز الملف!",
+        "📥 التحميل انتهى!"
+    ]
+
+    return random.choice(texts)
+
