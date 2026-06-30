@@ -1,4 +1,6 @@
 # main.py - البوت الفاخر النهائي (النسخة المتطورة)
+async def post_init(app):
+    await downloader.start()
 import os
 import re
 import json
