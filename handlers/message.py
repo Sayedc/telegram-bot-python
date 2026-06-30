@@ -41,7 +41,7 @@ async def handle_message(update, context):
 
     platform = get_platform(url)
 
-    video_info = await get_video_info(url)
+    video_info = get_video_info(url)
     if video_info:
         await update.message.reply_text(
             f"📹 معلومات الفيديو\n"
