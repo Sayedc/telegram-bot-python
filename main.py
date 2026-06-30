@@ -37,9 +37,7 @@ from config import BOT_TOKEN, ADMIN_IDS, DOWNLOADS_PATH
 # ==========================
 # SYSTEM CLASSES
 # ==========================
-from downloader import Downloader
-from metrics import Metrics
-from rate_limiter import RateLimiter
+from core import downloader, metrics, rate_limiter
 
 # ==========================
 # DATABASE
