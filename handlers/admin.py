@@ -1,36 +1,20 @@
+import os
 import asyncio
+import json
+import shutil
+from datetime import datetime
 
 from config import SIGNATURE, DOWNLOADS_PATH
-from core import downloader, metrics
-from metrics import metrics
 
 from database.user_repository import (
     get_users,
     block_user,
-    unblock_user,
+    unblock_user
 )
 
-# لازم تكون موجودة في main (هنستوردها وقت التشغيل)
-try:
-    from main import is_admin, get_uptime, START_TIME
-except:
-    is_admin = lambda x: False
-    get_uptime = lambda: "Unknown"
+from core import downloader, metrics
 
-
-# ==========================
-# Helpers
-# ==========================
-def safe_get_stats():
-    try:
-        return downloader.get_stats()
-    except:
-        return {
-            "queue_size": 0,
-            "active": 0,
-            "success": 0,
-            "failed": 0,
-        }
+from main import is_admin, get_uptime
 
 
 # ==========================
@@ -43,13 +27,10 @@ async def admin_stats(update, context):
     users = get_users()
     blocked = sum(1 for u in users.values() if u.get("blocked"))
 
-    stats = safe_get_stats()
+    stats = downloader.get_stats()
 
     text = f"""
-✨✨ 𝓐𝓵𝓱𝓪𝔀𝔂 ADMIN PANEL ✨✨
-
-👑 BOT STATUS: ACTIVE
-⏱️ Uptime: {get_uptime()}
+👑 ADMIN DASHBOARD
 
 👥 Users: {len(users)}
 🚫 Blocked: {blocked}
@@ -60,7 +41,9 @@ async def admin_stats(update, context):
 • Success: {stats['success']}
 • Failed: {stats['failed']}
 
-━━━━━━━━━━━━━━
+⏱ Uptime: {get_uptime()}
+
+━━━━━━━━━━━━
 {SIGNATURE}
 """
 
@@ -82,17 +65,11 @@ async def admin_top(update, context):
         reverse=True
     )[:10]
 
-    if not sorted_users:
-        await update.message.reply_text("🚫 No users yet")
-        return
-
     text = "🏆 TOP USERS\n\n"
 
     for i, (uid, info) in enumerate(sorted_users, 1):
         status = "🚫" if info.get("blocked") else "✅"
-        text += f"{i}. {uid} {status} | {info.get('downloads', 0)} downloads\n"
-
-    text += f"\n{SIGNATURE}"
+        text += f"{i}. {uid} {status} | {info.get('downloads', 0)}\n"
 
     await update.message.reply_text(text)
 
@@ -107,22 +84,21 @@ async def broadcast_cmd(update, context):
     msg = " ".join(context.args)
 
     if not msg:
-        await update.message.reply_text("⚠️ Send message text")
+        await update.message.reply_text("Usage: /broadcast message")
         return
 
     users = get_users()
-
     sent = 0
 
     for uid in users:
         try:
-            await context.bot.send_message(chat_id=int(uid), text=msg)
+            await context.bot.send_message(int(uid), msg)
             sent += 1
             await asyncio.sleep(0.05)
         except:
             pass
 
-    await update.message.reply_text(f"✅ Sent to {sent} users")
+    await update.message.reply_text(f"Sent to {sent} users")
 
 
 # ==========================
@@ -134,24 +110,20 @@ async def users_cmd(update, context):
 
     users = get_users()
 
-    text = "👥 USERS LIST\n\n"
+    text = "👥 USERS\n\n"
 
     for i, (uid, info) in enumerate(list(users.items())[:30], 1):
         text += f"{i}. {uid} | {info.get('downloads', 0)} downloads\n"
-
-    text += f"\n{SIGNATURE}"
 
     await update.message.reply_text(text)
 
 
 # ==========================
-# CLEAR FILES
+# CLEAR DOWNLOADS
 # ==========================
 async def clear_cmd(update, context):
     if not is_admin(update.effective_user.id):
         return
-
-    import os
 
     count = 0
 
@@ -162,7 +134,27 @@ async def clear_cmd(update, context):
         except:
             pass
 
-    await update.message.reply_text(f"🧹 Deleted {count} files")
+    await update.message.reply_text(f"Deleted {count} files")
+
+
+# ==========================
+# BACKUP (FIXED - THIS WAS YOUR ERROR)
+# ==========================
+async def backup_cmd(update, context):
+    if not is_admin(update.effective_user.id):
+        return
+
+    backup_file = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+
+    with open("database.json", "rb") as src:
+        with open(backup_file, "wb") as dst:
+            dst.write(src.read())
+
+    await update.message.reply_document(
+        document=open(backup_file, "rb")
+    )
+
+    os.remove(backup_file)
 
 
 # ==========================
@@ -173,11 +165,11 @@ async def block_user_cmd(update, context):
         return
 
     if not context.args:
-        await update.message.reply_text("Usage: block <user_id>")
+        await update.message.reply_text("Usage: /block user_id")
         return
 
     block_user(context.args[0])
-    await update.message.reply_text("🚫 User blocked")
+    await update.message.reply_text("User blocked")
 
 
 async def unblock_user_cmd(update, context):
@@ -185,11 +177,11 @@ async def unblock_user_cmd(update, context):
         return
 
     if not context.args:
-        await update.message.reply_text("Usage: unblock <user_id>")
+        await update.message.reply_text("Usage: /unblock user_id")
         return
 
     unblock_user(context.args[0])
-    await update.message.reply_text("✅ User unblocked")
+    await update.message.reply_text("User unblocked")
 
 
 # ==========================
@@ -199,24 +191,18 @@ async def admin_metrics_cmd(update, context):
     if not is_admin(update.effective_user.id):
         return
 
-    summary = metrics.get_summary()
-    stats = safe_get_stats()
+    stats = downloader.get_stats()
 
-    text = f"""
+    await update.message.reply_text(
+        f"""
 📊 SYSTEM METRICS
 
-⚡ Response: {summary['avg_response']}s
-📥 Download: {summary['avg_download']}s
-📈 Success Rate: {summary['success_rate']}%
+Queue: {stats['queue_size']}
+Active: {stats['active']}
+Success: {stats['success']}
+Failed: {stats['failed']}
 
-🔥 Active Users: {summary['active_users']}
-⚠️ Common Error: {summary['common_error']}
-
-📦 Queue: {stats['queue_size']}
-❌ Failed: {stats['failed']}
-
-━━━━━━━━━━━━━━
+━━━━━━━━━━━━
 {SIGNATURE}
 """
-
-    await update.message.reply_text(text)
+    )
