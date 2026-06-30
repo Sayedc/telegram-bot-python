@@ -1,7 +1,7 @@
 import asyncio
 
 from config import SIGNATURE, DOWNLOADS_PATH
-from main import downloader
+from core import downloader, metrics
 from metrics import metrics
 
 from database.user_repository import (
