@@ -2,17 +2,17 @@ import os
 import asyncio
 import yt_dlp
 from datetime import datetime
-from collections import deque
 
 
 class Downloader:
     def __init__(self, download_path: str, max_concurrent: int = 3):
         self.download_path = download_path
         self.semaphore = asyncio.Semaphore(max_concurrent)
-        self.queue = deque()
+        self.queue = []
         self.active = 0
         self.success = 0
         self.failed = 0
+        self.started = False
 
         os.makedirs(self.download_path, exist_ok=True)
 
@@ -52,10 +52,8 @@ class Downloader:
             "1080": "best[height<=1080]",
         }
 
-        fmt = quality_map.get(str(quality), "best")
-
         return {
-            "format": fmt,
+            "format": quality_map.get(str(quality), "best"),
             "merge_output_format": "mp4",
             "outtmpl": f"{self.download_path}/%(title)s.%(ext)s",
             "quiet": True,
@@ -100,4 +98,4 @@ class Downloader:
                 "title": info.get("title", "Unknown"),
                 "duration": info.get("duration", 0),
                 "timestamp": datetime.now().isoformat(),
-        }
+                }
