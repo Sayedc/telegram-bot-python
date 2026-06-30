@@ -103,3 +103,16 @@ def get_random_sticker():
 
     return random.choice(stickers)
 
+
+def get_random_processing_text():
+    texts = [
+        "⏳ جاري التحميل...",
+        "⚡ لحظة واحدة بس...",
+        "🚀 بيتم تجهيز الملف...",
+        "🔥 جاري المعالجة...",
+        "🎬 بيتم استخراج الفيديو...",
+        "💾 استنى شوية..."
+    ]
+
+    return random.choice(texts)
+
