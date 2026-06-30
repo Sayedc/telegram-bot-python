@@ -1,60 +1,79 @@
 import json
 import os
-from datetime import datetime
 
-DB_FILE = "bot_database.json"
-
-
-def init_db():
-    if not os.path.exists(DB_FILE):
-        with open(DB_FILE, "w") as f:
-            json.dump({
-                "users": {},
-                "total": 0,
-                "daily": 0,
-                "last_date": str(datetime.now().date())
-            }, f, indent=2)
+DB_FILE = "database.json"
 
 
-# ==========================
-# FIX: add_user
-# ==========================
-def add_user(user_id, username):
-    with open(DB_FILE, "r+") as f:
-        data = json.load(f)
-
-        if str(user_id) not in data["users"]:
-            data["users"][str(user_id)] = {
-                "name": username,
-                "first_seen": str(datetime.now()),
-                "last_seen": str(datetime.now()),
-                "downloads": 0,
-                "blocked": False
-            }
-
-        f.seek(0)
-        json.dump(data, f, indent=2)
-        f.truncate()
-
-
-# ==========================
-# FIX: update_last_seen
-# ==========================
-def update_last_seen(user_id):
-    with open(DB_FILE, "r+") as f:
-        data = json.load(f)
-
-        if str(user_id) in data["users"]:
-            data["users"][str(user_id)]["last_seen"] = str(datetime.now())
-
-        f.seek(0)
-        json.dump(data, f, indent=2)
-        f.truncate()
-
-
-# ==========================
-# optional helpers
-# ==========================
+# =========================
+# تحميل الداتا
+# =========================
 def get_data():
+    if not os.path.exists(DB_FILE):
+        data = {
+            "users": {},
+            "total": 0,
+            "daily": 0,
+            "failed": {}
+        }
+        with open(DB_FILE, "w") as f:
+            json.dump(data, f, indent=4)
+
     with open(DB_FILE, "r") as f:
         return json.load(f)
+
+
+# =========================
+# حفظ الداتا
+# =========================
+def save_data(data):
+    with open(DB_FILE, "w") as f:
+        json.dump(data, f, indent=4)
+
+
+# =========================
+# إضافة مستخدم
+# =========================
+def add_user(user_id, name):
+    data = get_data()
+
+    uid = str(user_id)
+
+    if uid not in data["users"]:
+        data["users"][uid] = {
+            "name": name,
+            "downloads": 0,
+            "blocked": False
+        }
+
+    save_data(data)
+
+
+# =========================
+# تحديث آخر ظهور
+# =========================
+def update_last_seen(user_id):
+    data = get_data()
+
+    uid = str(user_id)
+
+    if uid in data["users"]:
+        data["users"][uid]["last_seen"] = True
+
+    save_data(data)
+
+
+# =========================
+# أعلى مستخدمين
+# =========================
+def get_top_users(limit=10):
+    data = get_data()
+
+    users = data.get("users", {})
+
+    sorted_users = sorted(
+        users.items(),
+        key=lambda x: x[1].get("downloads", 0),
+        reverse=True
+    )
+
+    return sorted_users[:limit]
