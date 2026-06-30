@@ -1,19 +1,15 @@
 import re
 from database.user_repository import get_data, save_data
 
+
 # =========================
-# URL safety check
+# URL safety
 # =========================
 def is_safe_url(url: str) -> bool:
     if not url:
         return False
 
-    # منع الروابط الغريبة أو المكررة
-    patterns = [
-        r"^https?://",
-    ]
-
-    return any(re.match(p, url) for p in patterns)
+    return url.startswith("http://") or url.startswith("https://")
 
 
 # =========================
@@ -27,19 +23,17 @@ def record_failed_attempt(user_id: int):
 
     uid = str(user_id)
 
-    if uid not in data["failed"]:
-        data["failed"][uid] = 0
-
-    data["failed"][uid] += 1
+    data["failed"][uid] = data["failed"].get(uid, 0) + 1
 
     save_data(data)
 
 
 # =========================
-# (اختياري لو عندك استخدام لها)
+# التحقق من الحظر
 # =========================
-def is_user_blocked(user_id: int) -> bool:
+def is_blocked(user_id: int) -> bool:
     data = get_data()
+
     user = data["users"].get(str(user_id))
 
     if not user:
@@ -49,10 +43,18 @@ def is_user_blocked(user_id: int) -> bool:
 
 
 # =========================
-# stats helper
+# المستخدم محظور؟ (alias)
+# =========================
+def is_user_blocked(user_id: int) -> bool:
+    return is_blocked(user_id)
+
+
+# =========================
+# إحصائيات الفشل
 # =========================
 def get_failed_stats():
     data = get_data()
+
     failed = data.get("failed", {})
 
     return {
