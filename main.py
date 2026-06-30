@@ -1,13 +1,22 @@
-# main.py - PRO VERSION FIXED
+# main.py - PRO STABLE VERSION
 
 import os
 from datetime import datetime
 
-from telegram.ext import Application, MessageHandler, CallbackQueryHandler, CommandHandler, filters
+from telegram.ext import (
+    Application,
+    MessageHandler,
+    CallbackQueryHandler,
+    CommandHandler,
+    filters,
+)
 
-# ========== handlers ==========
+# ==========================
+# HANDLERS
+# ==========================
 from handlers.start import start
 from handlers.message import handle_message
+
 from handlers.admin import (
     admin_stats,
     admin_top,
@@ -20,24 +29,30 @@ from handlers.admin import (
     admin_metrics_cmd
 )
 
-# ========== config ==========
+# ==========================
+# CONFIG
+# ==========================
 from config import BOT_TOKEN, ADMIN_IDS, DOWNLOADS_PATH
 
-# ========== system ==========
+# ==========================
+# SYSTEM CLASSES
+# ==========================
 from downloader import Downloader
 from metrics import Metrics
 from rate_limiter import RateLimiter
 
-# ========== db ==========
+# ==========================
+# DATABASE
+# ==========================
 from database.user_repository import init_db
 
 
-# ==========================
-# GLOBAL INSTANCES (IMPORTANT FIX)
-# ==========================
+# =====================================================
+# GLOBAL SINGLE INSTANCES (IMPORTANT FIX - NO DUPLICATE)
+# =====================================================
 downloader = Downloader(DOWNLOADS_PATH, max_concurrent=3)
 metrics = Metrics()
-rate_limiter = RateLimiter(10, 60)
+rate_limiter = RateLimiter(max_requests=10, time_window=60)
 
 START_TIME = datetime.now()
 
@@ -48,13 +63,19 @@ BOT_USERNAME = "@SK_Download_bot"
 # ==========================
 # HELPERS
 # ==========================
-def is_admin(user_id: int):
+def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
 
 
-def get_uptime():
+def get_uptime() -> str:
     delta = datetime.now() - START_TIME
     return str(delta).split('.')[0]
+
+
+# ==========================
+# INIT
+# ==========================
+os.makedirs(DOWNLOADS_PATH, exist_ok=True)
 
 
 # ==========================
@@ -65,7 +86,7 @@ async def post_init(app):
 
 
 # ==========================
-# CALLBACK HANDLER (FIXED)
+# CALLBACK HANDLER (FIXED UI BUG)
 # ==========================
 async def callback(update, context):
     q = update.callback_query
@@ -76,23 +97,26 @@ async def callback(update, context):
     if q.data.startswith("q_"):
         value = q.data[2:]
 
-        context.user_data["audio"] = (value == "audio")
-        if value != "audio":
+        if value == "audio":
+            context.user_data["audio"] = True
+            context.user_data["quality"] = None
+        else:
+            context.user_data["audio"] = False
             context.user_data["quality"] = value
 
         await q.edit_message_text(
-            f"⚡ تم التحديث: {value}",
-            reply_markup=None
+            text=f"⚡ تم التحديث: {value}",
         )
 
     elif q.data == "back":
-        await q.edit_message_text("🏠 الرئيسية")
+        await q.edit_message_text("🏠 Main Menu")
 
 
 # ==========================
 # BOT START
 # ==========================
 def main():
+    # init db safely
     init_db()
 
     app = (
@@ -102,15 +126,16 @@ def main():
         .build()
     )
 
-    # ===== handlers =====
+    # ==========================
+    # CORE HANDLERS
+    # ==========================
     app.add_handler(CommandHandler("start", start))
-
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
-    # ===== callback =====
     app.add_handler(CallbackQueryHandler(callback))
 
-    # ===== ADMIN COMMANDS (FIX IMPORTANT) =====
+    # ==========================
+    # ADMIN COMMANDS
+    # ==========================
     app.add_handler(CommandHandler("stats", admin_stats))
     app.add_handler(CommandHandler("top", admin_top))
     app.add_handler(CommandHandler("broadcast", broadcast_cmd))
@@ -121,11 +146,18 @@ def main():
     app.add_handler(CommandHandler("unblock", unblock_user_cmd))
     app.add_handler(CommandHandler("metrics", admin_metrics_cmd))
 
-    print("=" * 50)
+    # ==========================
+    # LOGS
+    # ==========================
+    print("=" * 55)
     print(f"🤖 BOT: {BOT_USERNAME}")
-    print("🚀 STATUS: RUNNING PRO MODE")
-    print("=" * 50)
+    print("🚀 STATUS: PRODUCTION MODE ACTIVE")
+    print(f"⏱ STARTED: {START_TIME}")
+    print("=" * 55)
 
+    # ==========================
+    # RUN BOT
+    # ==========================
     app.run_polling()
 
 
