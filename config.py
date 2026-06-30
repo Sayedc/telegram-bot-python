@@ -6,3 +6,5 @@ ADMIN_IDS = [5671168695]
 
 MAX_FILE_SIZE_MB = 50
 DOWNLOADS_PATH = "/tmp/downloads"
+
+SIGNATURE = "✨ 𝓐𝓵𝓱𝓪𝔀𝔂 ✨"
