@@ -1,29 +1,41 @@
 import os
 import asyncio
-import yt_dlp
 from datetime import datetime
+
+import yt_dlp
+
+from config import DOWNLOADS_PATH, MAX_CONCURRENT_DOWNLOADS
 
 
 class Downloader:
-    def __init__(self, download_path: str, max_concurrent: int = 3):
+    def __init__(self, download_path=DOWNLOADS_PATH, max_concurrent=MAX_CONCURRENT_DOWNLOADS):
         self.download_path = download_path
         self.semaphore = asyncio.Semaphore(max_concurrent)
-        self.started = False
+
+        self.active = 0
+        self.success = 0
+        self.failed = 0
 
         os.makedirs(self.download_path, exist_ok=True)
 
     async def start(self):
-        """تشغيل الـ downloader (اختياري للتوافق مع post_init)"""
-        self.started = True
-        print("🚀 Downloader started")
+        print("✅ Downloader Started")
 
-    def _build_opts(self, quality="best", audio=False):
+    def get_stats(self):
+        return {
+            "queue_size": 0,
+            "active": self.active,
+            "success": self.success,
+            "failed": self.failed,
+        }
+
+    def _build_opts(self, quality="720", audio=False):
         if audio:
             return {
                 "format": "bestaudio/best",
-                "outtmpl": f"{self.download_path}/%(title)s.%(ext)s",
+                "outtmpl": os.path.join(self.download_path, "%(title)s.%(ext)s"),
                 "quiet": True,
-                "no_warnings": True,
+                "noplaylist": True,
                 "postprocessors": [{
                     "key": "FFmpegExtractAudio",
                     "preferredcodec": "mp3",
@@ -32,7 +44,7 @@ class Downloader:
             }
 
         quality_map = {
-            "144": "worst[height<=144]",
+            "144": "best[height<=144]",
             "240": "best[height<=240]",
             "360": "best[height<=360]",
             "480": "best[height<=480]",
@@ -40,26 +52,41 @@ class Downloader:
             "1080": "best[height<=1080]",
         }
 
-        fmt = quality_map.get(str(quality), "best")
-
         return {
-            "format": fmt,
+            "format": quality_map.get(str(quality), "best"),
             "merge_output_format": "mp4",
-            "outtmpl": f"{self.download_path}/%(title)s.%(ext)s",
+            "outtmpl": os.path.join(self.download_path, "%(title)s.%(ext)s"),
             "quiet": True,
-            "no_warnings": True,
+            "noplaylist": True,
         }
 
-    async def download(self, url: str, quality="720", audio=False):
+    async def download(self, url, quality="720", audio=False):
         async with self.semaphore:
-            loop = asyncio.get_event_loop()
-            return await loop.run_in_executor(
-                None,
-                self._download_sync,
-                url,
-                quality,
-                audio
-            )
+            self.active += 1
+
+            try:
+                loop = asyncio.get_running_loop()
+
+                result = await loop.run_in_executor(
+                    None,
+                    self._download_sync,
+                    url,
+                    quality,
+                    audio,
+                )
+
+                if result["success"]:
+                    self.success += 1
+                else:
+                    self.failed += 1
+
+                return result
+
+            finally:
+                self.active -= 1
+
+    async def download_url(self, url, quality="720", audio=False):
+        return await self.download(url, quality, audio)
 
     def _download_sync(self, url, quality, audio):
         try:
@@ -67,9 +94,9 @@ class Downloader:
 
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(url, download=True)
+
                 file_path = ydl.prepare_filename(info)
 
-                # لو صوت
                 if audio:
                     file_path = os.path.splitext(file_path)[0] + ".mp3"
 
@@ -87,13 +114,5 @@ class Downloader:
                 "error": str(e),
             }
 
-    async def download_url(self, url: str, quality="720", audio=False):
-        """API أبسط للاستخدام في باقي المشروع"""
-        return await self.download(url, quality, audio)
 
-from config import DOWNLOADS_PATH, MAX_CONCURRENT_DOWNLOADS
-
-downloader = Downloader(
-    download_path=DOWNLOADS_PATH,
-    max_concurrent=MAX_CONCURRENT_DOWNLOADS
-)
+downloader = Downloader()
