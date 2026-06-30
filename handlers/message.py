@@ -1,105 +1,72 @@
+# handlers/message.py
 import os
 from datetime import datetime
 
 from config import SIGNATURE
-from downloader import Downloader
-from metrics import Metrics
-from security import is_safe_url, record_failed_attempt
-from rate_limiter import RateLimiter
-
-from utils.helpers import (
-    extract_link,
-    get_platform,
-    get_video_info,
-    get_random_sticker,
-    get_random_processing_text,
-    get_random_success_text,
-    get_random_error_text
-)
-
-from config import DOWNLOADS_PATH
-
-downloader = Downloader(DOWNLOADS_PATH, max_concurrent=3)
-metrics = Metrics()
-rate_limiter = RateLimiter(max_requests=10, time_window=60)
+from core import downloader, metrics, rate_limiter
+from utils.helpers import extract_link, get_platform
+from utils.messages import get_random_processing_text, get_random_success_text, get_random_error_text
+from database.user_repository import increase_downloads
 
 
 async def handle_message(update, context):
-    u = update.effective_user
-    start_time = datetime.now()
+    user = update.effective_user
 
     url = extract_link(update.message.text)
-    quality = context.user_data.get('quality', '720')
-    audio = context.user_data.get('audio', False)
 
     if not url:
         await update.message.reply_text("❌ أرسل رابط صحيح")
         return
 
-    safe, msg = is_safe_url(url)
-    if not safe:
-        await update.message.reply_text(f"⚠️ {msg}")
-        return
-
     platform = get_platform(url)
+    quality = context.user_data.get("quality", "720")
+    audio = context.user_data.get("audio", False)
 
-    video_info = get_video_info(url)
-    if video_info:
-        await update.message.reply_text(
-            f"📹 معلومات الفيديو\n"
-            f"📝 {video_info['title'][:50]}\n"
-            f"⏱️ {video_info['duration']}\n"
-            f"📦 {video_info['size']}\n"
-            f"📱 {platform}\n"
-            f"🔄 جاري التحميل..."
-        )
-
-    sticker = get_random_sticker()
-    processing_text = get_random_processing_text()
-
-    s = await update.message.reply_text(
-        f"{sticker} {processing_text}\n📱 {platform}"
+    msg = await update.message.reply_text(
+        f"{get_random_processing_text()}\n📱 {platform}"
     )
 
-    download_start = datetime.now()
+    start_time = datetime.now()
 
     try:
-        position = await downloader.add_to_queue(
-            url, quality, audio, u.id
-        )
+        result = await downloader.download(url, quality, audio)
 
-        path, title = await downloader._download_media(
-            url, quality, audio
-        )
+        if not result or not result.get("success"):
+            error_msg = result.get("error", "Unknown error")
+            await msg.edit_text(f"❌ {error_msg}")
+            return
 
-        size = os.path.getsize(path) / 1048576
+        file_path = result.get("file_path")
+        title = result.get("title", "Media")
 
-        elapsed = (datetime.now() - download_start).total_seconds()
-        metrics.record_download(elapsed, platform, u.id)
+        if not os.path.exists(file_path):
+            await msg.edit_text("❌ الملف غير موجود بعد التحميل")
+            return
+
+        file_size = os.path.getsize(file_path) / 1048576
 
         if audio:
-            with open(path, 'rb') as f:
+            with open(file_path, "rb") as f:
                 await update.message.reply_audio(
                     f,
                     title=title[:50],
-                    caption=get_random_success_text()
+                    caption=f"{get_random_success_text()}\n\n{SIGNATURE}",
                 )
         else:
-            with open(path, 'rb') as f:
+            with open(file_path, "rb") as f:
                 await update.message.reply_video(
                     f,
-                    caption=f"🎬 {title[:60]}\n📦 {size:.1f} MB\n⚡ {quality}p\n📱 {platform}\n\n{SIGNATURE}",
-                    supports_streaming=True
+                    caption=f"🎬 {title[:60]}\n📦 {file_size:.1f} MB\n⚡ {quality}p\n📱 {platform}\n\n{SIGNATURE}",
+                    supports_streaming=True,
                 )
 
-        os.remove(path)
-        await s.delete()
+        os.remove(file_path)
+        increase_downloads(user.id)
+
+        elapsed = (datetime.now() - start_time).total_seconds()
+        metrics.record_download(elapsed, platform, user.id)
+
+        await msg.delete()
 
     except Exception as e:
-        metrics.record_error(str(e)[:50], u.id)
-        blocked, msg = record_failed_attempt(u.id, url)
-
-        if blocked:
-            await s.edit_text(f"🚫 {msg}")
-        else:
-            await s.edit_text("❌ حصل خطأ أثناء التحميل")
+        await msg.edit_text(f"❌ حدث خطأ أثناء التحميل\n```\n{str(e)[:100]}\n```")
