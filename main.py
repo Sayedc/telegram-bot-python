@@ -4,7 +4,9 @@ from datetime import datetime
 from telegram.ext import (
     Application,
     MessageHandler,
-    CallbackQueryHandler,
+    from handlers.callback import callback_handler
+
+app.add_handler(CallbackQueryHandler(callback_handler))
     CommandHandler,
     filters,
 )
