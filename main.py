@@ -1,5 +1,3 @@
-# main.py - Clean Production Version
-
 import os
 import asyncio
 from datetime import datetime
@@ -8,23 +6,22 @@ from telegram.ext import (
     Application,
     MessageHandler,
     CallbackQueryHandler,
+    CommandHandler,
     filters,
 )
 
 # ========== handlers ==========
 from handlers.start import start
 from handlers.message import handle_message
-#from handlers.admin import *
 
 # ========== keyboards ==========
-from keyboards.main_keyboard import *
+from keyboards.main_keyboard import main_keyboard, admin_keyboard
 
 # ========== config ==========
 from config import BOT_TOKEN, ADMIN_IDS, DOWNLOADS_PATH
 
 # ========== system ==========
 from downloader import Downloader
-downloader = Downloader(DOWNLOADS_PATH)
 from metrics import Metrics
 from rate_limiter import RateLimiter
 
@@ -88,6 +85,14 @@ async def callback(update, context):
 
 
 # ==========================
+# uptime helper
+# ==========================
+def get_uptime():
+    delta = datetime.now() - START_TIME
+    return str(delta).split('.')[0]
+
+
+# ==========================
 # bot main
 # ==========================
 def main():
@@ -100,7 +105,8 @@ def main():
         .build()
     )
 
-    # handlers
+    # ========== handlers ==========
+    app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
