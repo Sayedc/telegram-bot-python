@@ -38,6 +38,13 @@ from rate_limiter import RateLimiter
 from database.user_repository import *
 
 # ==========================
+# helper functions
+# ==========================
+def is_admin(user_id):
+    return user_id in ADMIN_IDS
+
+
+# ==========================
 # Downloader instance
 # ==========================
 downloader = Downloader(DOWNLOADS_PATH, max_concurrent=3)
@@ -105,6 +112,22 @@ def main():
 
     # ===== handlers =====
     app.add_handler(CallbackQueryHandler(callback))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+    print("=" * 50)
+    print("✨ BOT STARTED ✨")
+    print(f"👑 ADMINS: {ADMIN_IDS}")
+    print("🚀 READY")
+    print("=" * 50)
+
+    app.run_polling()
+
+
+# ==========================
+# run
+# ==========================
+if __name__ == "__main__":
+    main()    app.add_handler(CallbackQueryHandler(callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     print("=" * 50)
