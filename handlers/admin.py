@@ -14,7 +14,7 @@ from database.user_repository import (
 
 from core import downloader, metrics
 
-from main import is_admin, get_uptime
+from core import is_admin, get_uptime, downloader, metrics
 
 
 # ==========================
