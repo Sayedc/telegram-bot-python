@@ -1,93 +1,93 @@
-# keyboards/main_keyboard.py
+# keyboards/main_keyboard.py - بدون خطوط
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 
 def main_keyboard():
-    """الأزرار الرئيسية للمستخدم العادي - فخمة"""
+    """الأزرار الرئيسية للمستخدم العادي"""
     keyboard = [
         [
-            InlineKeyboardButton("🎬 ━━ تحميل فيديو ━━", callback_data="help_video"),
-            InlineKeyboardButton("🎵 ━━ استخراج صوت ━━", callback_data="help_audio"),
+            InlineKeyboardButton("🎬 تحميل فيديو", callback_data="help_video"),
+            InlineKeyboardButton("🎵 استخراج صوت", callback_data="help_audio"),
         ],
         [
-            InlineKeyboardButton("⚡ ━━ اختيار الجودة ━━", callback_data="quality_menu"),
-            InlineKeyboardButton("🎁 ━━ مشاركة البوت ━━", callback_data="share_bot"),
+            InlineKeyboardButton("⚡ اختيار الجودة", callback_data="quality_menu"),
+            InlineKeyboardButton("🎁 مشاركة البوت", callback_data="share_bot"),
         ],
         [
-            InlineKeyboardButton("📊 ━━ إحصائياتي ━━", callback_data="my_stats"),
-            InlineKeyboardButton("❓ ━━ المساعدة ━━", callback_data="help"),
+            InlineKeyboardButton("📊 إحصائياتي", callback_data="my_stats"),
+            InlineKeyboardButton("❓ المساعدة", callback_data="help"),
         ],
         [
-            InlineKeyboardButton("⚙️ ━━ الإعدادات ━━", callback_data="settings_menu"),
+            InlineKeyboardButton("⚙️ الإعدادات", callback_data="settings_menu"),
         ],
     ]
     return InlineKeyboardMarkup(keyboard)
 
 
 def admin_keyboard():
-    """الأزرار الرئيسية للأدمن - فخمة"""
+    """الأزرار الرئيسية للأدمن"""
     keyboard = [
         [
-            InlineKeyboardButton("👑 ━━ لوحة التحكم ━━", callback_data="admin_panel"),
+            InlineKeyboardButton("👑 لوحة التحكم", callback_data="admin_panel"),
         ],
         [
-            InlineKeyboardButton("🎬 ━━ تحميل فيديو ━━", callback_data="help_video"),
-            InlineKeyboardButton("🎵 ━━ استخراج صوت ━━", callback_data="help_audio"),
+            InlineKeyboardButton("🎬 تحميل فيديو", callback_data="help_video"),
+            InlineKeyboardButton("🎵 استخراج صوت", callback_data="help_audio"),
         ],
         [
-            InlineKeyboardButton("⚡ ━━ اختيار الجودة ━━", callback_data="quality_menu"),
-            InlineKeyboardButton("🎁 ━━ مشاركة البوت ━━", callback_data="share_bot"),
+            InlineKeyboardButton("⚡ اختيار الجودة", callback_data="quality_menu"),
+            InlineKeyboardButton("🎁 مشاركة البوت", callback_data="share_bot"),
         ],
         [
-            InlineKeyboardButton("📊 ━━ إحصائياتي ━━", callback_data="my_stats"),
-            InlineKeyboardButton("❓ ━━ المساعدة ━━", callback_data="help"),
+            InlineKeyboardButton("📊 إحصائياتي", callback_data="my_stats"),
+            InlineKeyboardButton("❓ المساعدة", callback_data="help"),
         ],
         [
-            InlineKeyboardButton("⚙️ ━━ الإعدادات ━━", callback_data="settings_menu"),
+            InlineKeyboardButton("⚙️ الإعدادات", callback_data="settings_menu"),
         ],
     ]
     return InlineKeyboardMarkup(keyboard)
 
 
 def admin_panel():
-    """لوحة تحكم الأدمن المتطورة - 14 زر"""
+    """لوحة تحكم الأدمن - أزرار فقط"""
     keyboard = [
         [
-            InlineKeyboardButton("📊 ━━ إحصائيات البوت ━━", callback_data="admin_stats"),
-            InlineKeyboardButton("🏆 ━━ ترتيب المستخدمين ━━", callback_data="admin_top"),
+            InlineKeyboardButton("📊 إحصائيات البوت", callback_data="admin_stats"),
+            InlineKeyboardButton("🏆 ترتيب المستخدمين", callback_data="admin_top"),
         ],
         [
-            InlineKeyboardButton("📢 ━━ إعلان للجميع ━━", callback_data="admin_broadcast"),
-            InlineKeyboardButton("👥 ━━ قائمة المستخدمين ━━", callback_data="admin_users"),
+            InlineKeyboardButton("📢 إعلان للجميع", callback_data="admin_broadcast"),
+            InlineKeyboardButton("👥 قائمة المستخدمين", callback_data="admin_users"),
         ],
         [
-            InlineKeyboardButton("🚫 ━━ حظر مستخدم ━━", callback_data="admin_block"),
-            InlineKeyboardButton("🔓 ━━ إلغاء حظر ━━", callback_data="admin_unblock"),
+            InlineKeyboardButton("🚫 حظر مستخدم", callback_data="admin_block"),
+            InlineKeyboardButton("🔓 إلغاء حظر", callback_data="admin_unblock"),
         ],
         [
-            InlineKeyboardButton("🗑️ ━━ حذف الكاش ━━", callback_data="admin_clear"),
-            InlineKeyboardButton("🗑️ ━━ حذف الكل ━━", callback_data="admin_delete_all"),
+            InlineKeyboardButton("🗑️ حذف الكاش", callback_data="admin_clear"),
+            InlineKeyboardButton("🗑️ حذف الكل", callback_data="admin_delete_all"),
         ],
         [
-            InlineKeyboardButton("⏱️ ━━ وقت التشغيل ━━", callback_data="admin_uptime"),
-            InlineKeyboardButton("📤 ━━ نسخة احتياطية ━━", callback_data="admin_backup"),
+            InlineKeyboardButton("⏱️ وقت التشغيل", callback_data="admin_uptime"),
+            InlineKeyboardButton("📤 نسخة احتياطية", callback_data="admin_backup"),
         ],
         [
-            InlineKeyboardButton("📊 ━━ مقاييس الأداء ━━", callback_data="admin_metrics"),
-            InlineKeyboardButton("📋 ━━ سجل الأخطاء ━━", callback_data="admin_logs"),
+            InlineKeyboardButton("📊 مقاييس الأداء", callback_data="admin_metrics"),
+            InlineKeyboardButton("📋 سجل الأخطاء", callback_data="admin_logs"),
         ],
         [
-            InlineKeyboardButton("🔄 ━━ إعادة تشغيل البوت ━━", callback_data="admin_restart"),
+            InlineKeyboardButton("🔄 إعادة تشغيل البوت", callback_data="admin_restart"),
         ],
         [
-            InlineKeyboardButton("🔙 ━━ رجوع للقائمة ━━", callback_data="back"),
+            InlineKeyboardButton("🔙 رجوع للقائمة", callback_data="back"),
         ],
     ]
     return InlineKeyboardMarkup(keyboard)
 
 
 def quality_keyboard():
-    """أزرار اختيار الجودة - فخمة"""
+    """أزرار اختيار الجودة"""
     keyboard = [
         [
             InlineKeyboardButton("📱 144p", callback_data="q_144"),
@@ -100,28 +100,28 @@ def quality_keyboard():
             InlineKeyboardButton("📺 1080p 👑", callback_data="q_1080"),
         ],
         [
-            InlineKeyboardButton("🎵 ━━ صوت MP3 ━━", callback_data="q_audio"),
+            InlineKeyboardButton("🎵 صوت MP3", callback_data="q_audio"),
         ],
         [
-            InlineKeyboardButton("🔙 ━━ رجوع ━━", callback_data="back"),
+            InlineKeyboardButton("🔙 رجوع", callback_data="back"),
         ],
     ]
     return InlineKeyboardMarkup(keyboard)
 
 
 def settings_keyboard():
-    """أزرار الإعدادات - جديدة"""
+    """أزرار الإعدادات"""
     keyboard = [
         [
-            InlineKeyboardButton("📱 ━━ جودة التحميل ━━", callback_data="settings_quality"),
-            InlineKeyboardButton("🔊 ━━ الصوت الافتراضي ━━", callback_data="settings_audio"),
+            InlineKeyboardButton("📱 جودة التحميل", callback_data="settings_quality"),
+            InlineKeyboardButton("🔊 الصوت الافتراضي", callback_data="settings_audio"),
         ],
         [
-            InlineKeyboardButton("🗑️ ━━ مسح بياناتي ━━", callback_data="settings_delete_data"),
-            InlineKeyboardButton("🔒 ━━ سياسة الخصوصية ━━", callback_data="settings_privacy"),
+            InlineKeyboardButton("🗑️ مسح بياناتي", callback_data="settings_delete_data"),
+            InlineKeyboardButton("🔒 سياسة الخصوصية", callback_data="settings_privacy"),
         ],
         [
-            InlineKeyboardButton("🔙 ━━ رجوع ━━", callback_data="back"),
+            InlineKeyboardButton("🔙 رجوع", callback_data="back"),
         ],
     ]
     return InlineKeyboardMarkup(keyboard)
