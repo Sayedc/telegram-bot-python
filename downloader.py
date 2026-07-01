@@ -104,7 +104,14 @@ class Downloader:
             "1080": "best[height<=1080]",
         }
 
+        # 🔥 نختار أفضل فورمات ممكنة (فيديو + صوت معًا أو الفيديو الأعلى جودة)
         fmt = quality_map.get(quality, "best[height<=720]")
+
+        # إذا كانت الجودة عالية، نطلب تحميل فيديو وصوت معًا
+        if quality in ["720", "1080"]:
+            format_spec = f"bestvideo[height<={quality}]+bestaudio/best[height<={quality}]"
+        else:
+            format_spec = fmt
 
         opts = {
             "outtmpl": os.path.join(self.download_path, "%(title)s.%(ext)s"),
@@ -112,6 +119,8 @@ class Downloader:
             "no_warnings": True,
             "ignoreerrors": True,
             "noplaylist": True,
+            # نطلب دمج الفيديو والصوت في ملف واحد
+            "merge_output_format": "mp4",
         }
 
         # تحديد ملف الكوكيز حسب المنصة
@@ -139,8 +148,7 @@ class Downloader:
             })
         else:
             opts.update({
-                "format": fmt,
-                "merge_output_format": "mp4",
+                "format": format_spec,
             })
 
         return opts
