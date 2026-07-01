@@ -50,7 +50,7 @@ class Downloader:
 
             except asyncio.TimeoutError:
                 self.failed += 1
-                return {"success": False, "error": "⚠️ التحميل استغرق وقتاً طويلاً"}
+                return {"success": False, "error": "⚠️ التحميل استغرق وقتاً طويلاً (تم إلغاؤه)"}
 
             except Exception as e:
                 self.failed += 1
@@ -67,7 +67,7 @@ class Downloader:
                 info = ydl.extract_info(url, download=True)
 
                 if info is None:
-                    return {"success": False, "error": "⚠️ الرابط غير صحيح"}
+                    return {"success": False, "error": "⚠️ الرابط غير صحيح أو غير مدعوم"}
 
                 file_path = ydl.prepare_filename(info)
 
@@ -75,20 +75,21 @@ class Downloader:
                     file_path = os.path.splitext(file_path)[0] + ".mp3"
 
                 if not os.path.exists(file_path):
-                    return {"success": False, "error": "⚠️ الملف لم يتم تحميله"}
+                    return {"success": False, "error": "⚠️ الملف لم يتم تحميله بنجاح"}
 
                 return {
                     "success": True,
                     "file_path": file_path,
                     "title": info.get("title", "Unknown"),
                     "duration": info.get("duration", 0),
+                    "timestamp": datetime.now().isoformat(),
                 }
 
         except yt_dlp.utils.DownloadError as e:
             error_msg = str(e)
             if "Sign in to confirm" in error_msg:
-                return {"success": False, "error": "⚠️ يوتيوب طلب تسجيل دخول\n💡 حمّل ملف cookies.txt"}
-            return {"success": False, "error": f"⚠️ خطأ: {error_msg[:100]}"}
+                return {"success": False, "error": "⚠️ يوتيوب طلب تسجيل دخول\n💡 حمّل ملف cookies.txt وارفعه على GitHub"}
+            return {"success": False, "error": f"⚠️ خطأ في التحميل: {error_msg[:100]}"}
 
         except Exception as e:
             return {"success": False, "error": f"⚠️ حدث خطأ: {str(e)[:100]}"}
@@ -113,13 +114,13 @@ class Downloader:
             "noplaylist": True,
         }
 
-        # مسار الكوكيز المضمون
-        cookies_path = os.path.join(os.path.dirname(__file__), "cookies.txt")
-        if os.path.exists(cookies_path):
-            opts["cookiefile"] = cookies_path
-        else:
-            print("⚠️ ملف cookies.txt غير موجود")
+        # تحديد ملف الكوكيز حسب المنصة
+        cookies_file = self._get_cookies_file(url)
+        if cookies_file and os.path.exists(cookies_file):
+            opts["cookiefile"] = cookies_file
+            print(f"🍪 Using cookies: {cookies_file}")
 
+        # معاملة خاصة لتيك توك
         if url and "tiktok" in url:
             opts["extractor_args"] = {
                 "tiktok": {
@@ -143,3 +144,41 @@ class Downloader:
             })
 
         return opts
+
+    def _get_cookies_file(self, url):
+        """تحديد ملف الكوكيز المناسب حسب المنصة"""
+        if not url:
+            return None
+
+        base_dir = os.path.dirname(__file__)
+
+        # كوكيز يوتيوب
+        if "youtube.com" in url or "youtu.be" in url:
+            cookies_path = os.path.join(base_dir, "cookies_youtube.txt")
+            if os.path.exists(cookies_path):
+                return cookies_path
+
+        # كوكيز فيسبوك
+        if "facebook.com" in url or "fb.watch" in url:
+            cookies_path = os.path.join(base_dir, "cookies_facebook.txt")
+            if os.path.exists(cookies_path):
+                return cookies_path
+
+        # كوكيز انستجرام
+        if "instagram.com" in url:
+            cookies_path = os.path.join(base_dir, "cookies_instagram.txt")
+            if os.path.exists(cookies_path):
+                return cookies_path
+
+        # كوكيز تويتر
+        if "twitter.com" in url or "x.com" in url:
+            cookies_path = os.path.join(base_dir, "cookies_twitter.txt")
+            if os.path.exists(cookies_path):
+                return cookies_path
+
+        # لو مفيش كوكيز مخصصة، جرب الملف الأساسي
+        default_cookies = os.path.join(base_dir, "cookies.txt")
+        if os.path.exists(default_cookies):
+            return default_cookies
+
+        return None
