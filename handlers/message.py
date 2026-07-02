@@ -33,12 +33,16 @@ async def handle_message(update, context):
 
         if not result or not result.get("success"):
             error_msg = result.get("error", "Unknown error")
+            error_code = result.get("error_code", "UNKNOWN")
 
-            # رسائل مخصصة حسب نوع الخطأ
-            if "cookies" in error_msg.lower() or "sign in" in error_msg.lower():
-                error_msg = "⚠️ يوتيوب طلب تسجيل دخول\n💡 حمّل ملف cookies.txt وارفعه على GitHub"
+            # رسالة مخصصة حسب نوع الخطأ
+            final_msg = f"❌ {error_msg}"
 
-            await msg.edit_text(f"❌ {error_msg}")
+            # إضافة نصيحة إضافية حسب نوع الخطأ
+            if error_code == "COOKIES_REQUIRED":
+                final_msg += "\n\n📌 عشان تشتغل يوتيوب وفيسبوك محتاج:\n1. تطلع كوكيز من متصفحك\n2. ترفعهم على GitHub"
+
+            await msg.edit_text(final_msg)
             return
 
         file_path = result.get("file_path")
