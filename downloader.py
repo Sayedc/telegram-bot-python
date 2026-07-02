@@ -1,4 +1,4 @@
-# downloader.py
+# downloader.py - نسخة مستقرة لتيك توك والكوكيز
 import os
 import asyncio
 import yt_dlp
@@ -50,7 +50,7 @@ class Downloader:
 
             except asyncio.TimeoutError:
                 self.failed += 1
-                return {"success": False, "error": "⚠️ التحميل استغرق وقتاً طويلاً (تم إلغاؤه)"}
+                return {"success": False, "error": "⚠️ التحميل استغرق وقتاً طويلاً"}
 
             except Exception as e:
                 self.failed += 1
@@ -64,14 +64,11 @@ class Downloader:
 
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
-                # نجيب المعلومات أولاً
-                info = ydl.extract_info(url, download=False)
-                if info:
-                    # ثم نبدأ التحميل
-                    ydl.download([url])
-                
+                # التحميل المباشر (زي ما كان شغال)
+                info = ydl.extract_info(url, download=True)
+
                 if info is None:
-                    return {"success": False, "error": "⚠️ الرابط غير صحيح أو غير مدعوم"}
+                    return {"success": False, "error": "⚠️ الرابط غير صحيح"}
 
                 file_path = ydl.prepare_filename(info)
 
@@ -79,20 +76,19 @@ class Downloader:
                     file_path = os.path.splitext(file_path)[0] + ".mp3"
 
                 if not os.path.exists(file_path):
-                    return {"success": False, "error": "⚠️ الملف لم يتم تحميله بنجاح"}
+                    return {"success": False, "error": "⚠️ الملف لم يتم تحميله"}
 
                 return {
                     "success": True,
                     "file_path": file_path,
                     "title": info.get("title", "Unknown"),
                     "duration": info.get("duration", 0),
-                    "timestamp": datetime.now().isoformat(),
                 }
 
         except yt_dlp.utils.DownloadError as e:
             error_msg = str(e)
             if "Sign in to confirm" in error_msg:
-                return {"success": False, "error": "⚠️ يوتيوب طلب تسجيل دخول\n💡 حمّل ملف cookies.txt وارفعه على GitHub"}
+                return {"success": False, "error": "⚠️ يوتيوب طلب تسجيل دخول\n💡 حمّل ملف cookies.txt"}
             return {"success": False, "error": f"⚠️ خطأ في التحميل: {error_msg[:100]}"}
 
         except Exception as e:
@@ -110,28 +106,20 @@ class Downloader:
 
         fmt = quality_map.get(quality, "best[height<=720]")
 
-        # تحديد صيغة التحميل
-        if quality in ["720", "1080"]:
-            format_spec = f"bestvideo[height<={quality}]+bestaudio/best[height<={quality}]"
-        else:
-            format_spec = fmt
-
         opts = {
             "outtmpl": os.path.join(self.download_path, "%(title)s.%(ext)s"),
             "quiet": True,
             "no_warnings": True,
             "ignoreerrors": True,
             "noplaylist": True,
-            "merge_output_format": "mp4",
         }
 
-        # تحديد ملف الكوكيز حسب المنصة
+        # ==== كوكيز بذكاء ====
         cookies_file = self._get_cookies_file(url)
         if cookies_file and os.path.exists(cookies_file):
             opts["cookiefile"] = cookies_file
-            print(f"🍪 Using cookies: {cookies_file}")
 
-        # معاملة خاصة لتيك توك
+        # ==== تيك توك ====
         if url and "tiktok" in url:
             opts["extractor_args"] = {
                 "tiktok": {
@@ -150,45 +138,37 @@ class Downloader:
             })
         else:
             opts.update({
-                "format": format_spec,
+                "format": fmt,
+                "merge_output_format": "mp4",
             })
 
         return opts
 
     def _get_cookies_file(self, url):
-        """تحديد ملف الكوكيز المناسب حسب المنصة"""
+        """تحديد ملف الكوكيز حسب المنصة"""
         if not url:
             return None
 
         base_dir = os.path.dirname(__file__)
 
-        # كوكيز يوتيوب
         if "youtube.com" in url or "youtu.be" in url:
-            cookies_path = os.path.join(base_dir, "cookies_youtube.txt")
-            if os.path.exists(cookies_path):
-                return cookies_path
+            path = os.path.join(base_dir, "cookies_youtube.txt")
+            if os.path.exists(path):
+                return path
 
-        # كوكيز فيسبوك
         if "facebook.com" in url or "fb.watch" in url:
-            cookies_path = os.path.join(base_dir, "cookies_facebook.txt")
-            if os.path.exists(cookies_path):
-                return cookies_path
+            path = os.path.join(base_dir, "cookies_facebook.txt")
+            if os.path.exists(path):
+                return path
 
-        # كوكيز انستجرام
         if "instagram.com" in url:
-            cookies_path = os.path.join(base_dir, "cookies_instagram.txt")
-            if os.path.exists(cookies_path):
-                return cookies_path
+            path = os.path.join(base_dir, "cookies_instagram.txt")
+            if os.path.exists(path):
+                return path
 
-        # كوكيز تويتر
-        if "twitter.com" in url or "x.com" in url:
-            cookies_path = os.path.join(base_dir, "cookies_twitter.txt")
-            if os.path.exists(cookies_path):
-                return cookies_path
-
-        # لو مفيش كوكيز مخصصة، جرب الملف الأساسي
-        default_cookies = os.path.join(base_dir, "cookies.txt")
-        if os.path.exists(default_cookies):
-            return default_cookies
+        # لو مفيش حاجة، جرب الملف الأساسي
+        default_path = os.path.join(base_dir, "cookies.txt")
+        if os.path.exists(default_path):
+            return default_path
 
         return None
