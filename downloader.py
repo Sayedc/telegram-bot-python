@@ -1,4 +1,4 @@
-# downloader.py - مع رسائل خطأ مفصلة
+# downloader.py - مع أكواد خطأ محددة
 import os
 import asyncio
 import yt_dlp
@@ -52,7 +52,7 @@ class Downloader:
                 self.failed += 1
                 return {
                     "success": False,
-                    "error": "⏰ استغرق التحميل وقتاً طويلاً (تم إلغاؤه)",
+                    "error": "Timed out",
                     "error_code": "TIMEOUT"
                 }
 
@@ -60,8 +60,8 @@ class Downloader:
                 self.failed += 1
                 return {
                     "success": False,
-                    "error": f"⚠️ حدث خطأ: {str(e)[:100]}",
-                    "error_code": "UNKNOWN"
+                    "error": str(e),
+                    "error_code": "EXCEPTION"
                 }
 
             finally:
@@ -77,7 +77,7 @@ class Downloader:
                 if info is None:
                     return {
                         "success": False,
-                        "error": "❌ الرابط غير صحيح أو غير مدعوم",
+                        "error": "Invalid URL or unsupported platform",
                         "error_code": "INVALID_URL"
                     }
 
@@ -89,7 +89,7 @@ class Downloader:
                 if not os.path.exists(file_path):
                     return {
                         "success": False,
-                        "error": "❌ الملف لم يتم تحميله بنجاح",
+                        "error": "File not found after download",
                         "error_code": "FILE_NOT_FOUND"
                     }
 
@@ -103,67 +103,80 @@ class Downloader:
         except yt_dlp.utils.DownloadError as e:
             error_msg = str(e)
 
-            # ===== رسائل خطأ مفصلة =====
+            # ===== أكواد خطأ محددة =====
             if "Sign in to confirm" in error_msg:
                 return {
                     "success": False,
-                    "error": "🔐 يوتيوب طلب تسجيل دخول\n💡 الحل: حمّل ملف cookies.txt وارفعه على GitHub",
+                    "error": "Sign in required",
                     "error_code": "COOKIES_REQUIRED"
                 }
 
             if "Private video" in error_msg:
                 return {
                     "success": False,
-                    "error": "🔒 الفيديو خاص (Private)\n💡 الحل: استخدم رابط فيديو عام",
+                    "error": "Video is private",
                     "error_code": "PRIVATE_VIDEO"
                 }
 
             if "Video unavailable" in error_msg:
                 return {
                     "success": False,
-                    "error": "🚫 الفيديو غير متاح\n💡 ممكن اتحذف أو اتغيرت صلاحياته",
+                    "error": "Video unavailable",
                     "error_code": "VIDEO_UNAVAILABLE"
                 }
 
             if "This video is age-restricted" in error_msg:
                 return {
                     "success": False,
-                    "error": "🔞 الفيديو مقيد بعمر (Age Restricted)\n💡 الحل: استخدم حساب مسجل الدخول",
+                    "error": "Age restricted",
                     "error_code": "AGE_RESTRICTED"
                 }
 
             if "Requested format is not available" in error_msg:
                 return {
                     "success": False,
-                    "error": "📹 الجودة المطلوبة غير متاحة\n💡 الحل: جرب جودة أقل (480p مثلاً)",
+                    "error": "Format not available",
                     "error_code": "FORMAT_NOT_AVAILABLE"
                 }
 
             if "rate limit" in error_msg.lower():
                 return {
                     "success": False,
-                    "error": "⏳ تم تجاوز حد التحميل\n💡 انتظر شوية وحاول تاني",
+                    "error": "Rate limited",
                     "error_code": "RATE_LIMIT"
+                }
+
+            if "IP address is blocked" in error_msg:
+                return {
+                    "success": False,
+                    "error": "IP blocked by platform",
+                    "error_code": "IP_BLOCKED"
+                }
+
+            if "ffmpeg is not installed" in error_msg:
+                return {
+                    "success": False,
+                    "error": "FFmpeg not installed",
+                    "error_code": "FFMPEG_MISSING"
                 }
 
             if "cookies" in error_msg.lower():
                 return {
                     "success": False,
-                    "error": "🍪 مشكلة في ملف الكوكيز\n💡 الحل: جيب كوكيز جديدة وارفعها",
+                    "error": "Cookie error",
                     "error_code": "COOKIES_ERROR"
                 }
 
-            # لو مش من الحالات دي
             return {
                 "success": False,
-                "error": f"⚠️ خطأ في التحميل: {error_msg[:100]}",
+                "error": error_msg[:150],
                 "error_code": "DOWNLOAD_ERROR"
             }
 
         except Exception as e:
             return {
                 "success": False,
-                "error": f"⚠️ حدث خطأ: {str(e)[:100]}",
+                "error": str(e)[:150],
                 "error_code": "UNKNOWN_ERROR"
             }
 
@@ -187,16 +200,10 @@ class Downloader:
             "noplaylist": True,
         }
 
-        # كوكيز
         cookies_file = self._get_cookies_file(url)
         if cookies_file and os.path.exists(cookies_file):
             opts["cookiefile"] = cookies_file
-        else:
-            # لو مفيش كوكيز، ننبه المستخدم
-            if url and ("youtube" in url or "facebook" in url):
-                print("⚠️ No cookies file found for YouTube/Facebook")
 
-        # تيك توك
         if url and "tiktok" in url:
             opts["extractor_args"] = {
                 "tiktok": {
@@ -222,7 +229,6 @@ class Downloader:
         return opts
 
     def _get_cookies_file(self, url):
-        """تحديد ملف الكوكيز حسب المنصة"""
         if not url:
             return None
 
