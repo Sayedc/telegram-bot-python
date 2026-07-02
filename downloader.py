@@ -1,4 +1,4 @@
-# downloader.py - نسخة مستقرة لتيك توك والكوكيز
+# downloader.py - مع دعم ملفين كوكيز
 import os
 import asyncio
 import yt_dlp
@@ -64,7 +64,6 @@ class Downloader:
 
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
-                # التحميل المباشر (زي ما كان شغال)
                 info = ydl.extract_info(url, download=True)
 
                 if info is None:
@@ -88,7 +87,7 @@ class Downloader:
         except yt_dlp.utils.DownloadError as e:
             error_msg = str(e)
             if "Sign in to confirm" in error_msg:
-                return {"success": False, "error": "⚠️ يوتيوب طلب تسجيل دخول\n💡 حمّل ملف cookies.txt"}
+                return {"success": False, "error": "⚠️ يوتيوب طلب تسجيل دخول\n💡 حمّل ملف cookies_youtube.txt"}
             return {"success": False, "error": f"⚠️ خطأ في التحميل: {error_msg[:100]}"}
 
         except Exception as e:
@@ -114,12 +113,13 @@ class Downloader:
             "noplaylist": True,
         }
 
-        # ==== كوكيز بذكاء ====
+        # ===== تحديد ملف الكوكيز حسب المنصة =====
         cookies_file = self._get_cookies_file(url)
         if cookies_file and os.path.exists(cookies_file):
             opts["cookiefile"] = cookies_file
+            print(f"🍪 Using cookies: {cookies_file}")
 
-        # ==== تيك توك ====
+        # ===== تيك توك =====
         if url and "tiktok" in url:
             opts["extractor_args"] = {
                 "tiktok": {
@@ -151,18 +151,27 @@ class Downloader:
 
         base_dir = os.path.dirname(__file__)
 
+        # يوتيوب
         if "youtube.com" in url or "youtu.be" in url:
             path = os.path.join(base_dir, "cookies_youtube.txt")
             if os.path.exists(path):
                 return path
 
+        # فيسبوك
         if "facebook.com" in url or "fb.watch" in url:
             path = os.path.join(base_dir, "cookies_facebook.txt")
             if os.path.exists(path):
                 return path
 
+        # انستجرام
         if "instagram.com" in url:
             path = os.path.join(base_dir, "cookies_instagram.txt")
+            if os.path.exists(path):
+                return path
+
+        # تويتر
+        if "twitter.com" in url or "x.com" in url:
+            path = os.path.join(base_dir, "cookies_twitter.txt")
             if os.path.exists(path):
                 return path
 
