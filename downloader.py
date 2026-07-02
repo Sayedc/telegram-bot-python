@@ -149,14 +149,14 @@ class Downloader:
             if "IP address is blocked" in error_msg:
                 return {
                     "success": False,
-                    "error": "IP blocked by platform",
+                    "error": "Your IP address is blocked from accessing this post",
                     "error_code": "IP_BLOCKED"
                 }
 
             if "ffmpeg is not installed" in error_msg:
                 return {
                     "success": False,
-                    "error": "FFmpeg not installed",
+                    "error": "FFmpeg is not installed. Aborting due to -",
                     "error_code": "FFMPEG_MISSING"
                 }
 
