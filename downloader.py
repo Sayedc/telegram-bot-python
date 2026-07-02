@@ -64,8 +64,12 @@ class Downloader:
 
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-
+                # نجيب المعلومات أولاً
+                info = ydl.extract_info(url, download=False)
+                if info:
+                    # ثم نبدأ التحميل
+                    ydl.download([url])
+                
                 if info is None:
                     return {"success": False, "error": "⚠️ الرابط غير صحيح أو غير مدعوم"}
 
@@ -104,10 +108,9 @@ class Downloader:
             "1080": "best[height<=1080]",
         }
 
-        # 🔥 نختار أفضل فورمات ممكنة (فيديو + صوت معًا أو الفيديو الأعلى جودة)
         fmt = quality_map.get(quality, "best[height<=720]")
 
-        # إذا كانت الجودة عالية، نطلب تحميل فيديو وصوت معًا
+        # تحديد صيغة التحميل
         if quality in ["720", "1080"]:
             format_spec = f"bestvideo[height<={quality}]+bestaudio/best[height<={quality}]"
         else:
@@ -119,7 +122,6 @@ class Downloader:
             "no_warnings": True,
             "ignoreerrors": True,
             "noplaylist": True,
-            # نطلب دمج الفيديو والصوت في ملف واحد
             "merge_output_format": "mp4",
         }
 
