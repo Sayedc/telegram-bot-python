@@ -1,4 +1,4 @@
-# downloader.py - مع دعم ملفين كوكيز
+# downloader.py - مع رسائل خطأ مفصلة
 import os
 import asyncio
 import yt_dlp
@@ -50,11 +50,19 @@ class Downloader:
 
             except asyncio.TimeoutError:
                 self.failed += 1
-                return {"success": False, "error": "⚠️ التحميل استغرق وقتاً طويلاً"}
+                return {
+                    "success": False,
+                    "error": "⏰ استغرق التحميل وقتاً طويلاً (تم إلغاؤه)",
+                    "error_code": "TIMEOUT"
+                }
 
             except Exception as e:
                 self.failed += 1
-                return {"success": False, "error": str(e)}
+                return {
+                    "success": False,
+                    "error": f"⚠️ حدث خطأ: {str(e)[:100]}",
+                    "error_code": "UNKNOWN"
+                }
 
             finally:
                 self.active -= 1
@@ -67,7 +75,11 @@ class Downloader:
                 info = ydl.extract_info(url, download=True)
 
                 if info is None:
-                    return {"success": False, "error": "⚠️ الرابط غير صحيح"}
+                    return {
+                        "success": False,
+                        "error": "❌ الرابط غير صحيح أو غير مدعوم",
+                        "error_code": "INVALID_URL"
+                    }
 
                 file_path = ydl.prepare_filename(info)
 
@@ -75,7 +87,11 @@ class Downloader:
                     file_path = os.path.splitext(file_path)[0] + ".mp3"
 
                 if not os.path.exists(file_path):
-                    return {"success": False, "error": "⚠️ الملف لم يتم تحميله"}
+                    return {
+                        "success": False,
+                        "error": "❌ الملف لم يتم تحميله بنجاح",
+                        "error_code": "FILE_NOT_FOUND"
+                    }
 
                 return {
                     "success": True,
@@ -86,12 +102,70 @@ class Downloader:
 
         except yt_dlp.utils.DownloadError as e:
             error_msg = str(e)
+
+            # ===== رسائل خطأ مفصلة =====
             if "Sign in to confirm" in error_msg:
-                return {"success": False, "error": "⚠️ يوتيوب طلب تسجيل دخول\n💡 حمّل ملف cookies_youtube.txt"}
-            return {"success": False, "error": f"⚠️ خطأ في التحميل: {error_msg[:100]}"}
+                return {
+                    "success": False,
+                    "error": "🔐 يوتيوب طلب تسجيل دخول\n💡 الحل: حمّل ملف cookies.txt وارفعه على GitHub",
+                    "error_code": "COOKIES_REQUIRED"
+                }
+
+            if "Private video" in error_msg:
+                return {
+                    "success": False,
+                    "error": "🔒 الفيديو خاص (Private)\n💡 الحل: استخدم رابط فيديو عام",
+                    "error_code": "PRIVATE_VIDEO"
+                }
+
+            if "Video unavailable" in error_msg:
+                return {
+                    "success": False,
+                    "error": "🚫 الفيديو غير متاح\n💡 ممكن اتحذف أو اتغيرت صلاحياته",
+                    "error_code": "VIDEO_UNAVAILABLE"
+                }
+
+            if "This video is age-restricted" in error_msg:
+                return {
+                    "success": False,
+                    "error": "🔞 الفيديو مقيد بعمر (Age Restricted)\n💡 الحل: استخدم حساب مسجل الدخول",
+                    "error_code": "AGE_RESTRICTED"
+                }
+
+            if "Requested format is not available" in error_msg:
+                return {
+                    "success": False,
+                    "error": "📹 الجودة المطلوبة غير متاحة\n💡 الحل: جرب جودة أقل (480p مثلاً)",
+                    "error_code": "FORMAT_NOT_AVAILABLE"
+                }
+
+            if "rate limit" in error_msg.lower():
+                return {
+                    "success": False,
+                    "error": "⏳ تم تجاوز حد التحميل\n💡 انتظر شوية وحاول تاني",
+                    "error_code": "RATE_LIMIT"
+                }
+
+            if "cookies" in error_msg.lower():
+                return {
+                    "success": False,
+                    "error": "🍪 مشكلة في ملف الكوكيز\n💡 الحل: جيب كوكيز جديدة وارفعها",
+                    "error_code": "COOKIES_ERROR"
+                }
+
+            # لو مش من الحالات دي
+            return {
+                "success": False,
+                "error": f"⚠️ خطأ في التحميل: {error_msg[:100]}",
+                "error_code": "DOWNLOAD_ERROR"
+            }
 
         except Exception as e:
-            return {"success": False, "error": f"⚠️ حدث خطأ: {str(e)[:100]}"}
+            return {
+                "success": False,
+                "error": f"⚠️ حدث خطأ: {str(e)[:100]}",
+                "error_code": "UNKNOWN_ERROR"
+            }
 
     def _build_opts(self, quality, audio, url=None):
         quality_map = {
@@ -113,13 +187,16 @@ class Downloader:
             "noplaylist": True,
         }
 
-        # ===== تحديد ملف الكوكيز حسب المنصة =====
+        # كوكيز
         cookies_file = self._get_cookies_file(url)
         if cookies_file and os.path.exists(cookies_file):
             opts["cookiefile"] = cookies_file
-            print(f"🍪 Using cookies: {cookies_file}")
+        else:
+            # لو مفيش كوكيز، ننبه المستخدم
+            if url and ("youtube" in url or "facebook" in url):
+                print("⚠️ No cookies file found for YouTube/Facebook")
 
-        # ===== تيك توك =====
+        # تيك توك
         if url and "tiktok" in url:
             opts["extractor_args"] = {
                 "tiktok": {
@@ -151,31 +228,26 @@ class Downloader:
 
         base_dir = os.path.dirname(__file__)
 
-        # يوتيوب
         if "youtube.com" in url or "youtu.be" in url:
             path = os.path.join(base_dir, "cookies_youtube.txt")
             if os.path.exists(path):
                 return path
 
-        # فيسبوك
         if "facebook.com" in url or "fb.watch" in url:
             path = os.path.join(base_dir, "cookies_facebook.txt")
             if os.path.exists(path):
                 return path
 
-        # انستجرام
         if "instagram.com" in url:
             path = os.path.join(base_dir, "cookies_instagram.txt")
             if os.path.exists(path):
                 return path
 
-        # تويتر
         if "twitter.com" in url or "x.com" in url:
             path = os.path.join(base_dir, "cookies_twitter.txt")
             if os.path.exists(path):
                 return path
 
-        # لو مفيش حاجة، جرب الملف الأساسي
         default_path = os.path.join(base_dir, "cookies.txt")
         if os.path.exists(default_path):
             return default_path
