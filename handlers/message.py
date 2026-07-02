@@ -1,16 +1,81 @@
 # handlers/message.py
 import os
+import traceback
 from datetime import datetime
 
-from config import SIGNATURE
+from config import SIGNATURE, ADMIN_IDS
 from core import downloader, metrics
 from utils.helpers import extract_link, get_platform
-from utils.messages import get_random_processing_text, get_random_success_text
+from utils.messages import get_random_processing_text, get_random_success_text, get_random_error_text
 from database.user_repository import increase_downloads
+
+
+async def send_admin_error(context, user_id, url, platform, error_msg, error_code=None, tb=None):
+    """إرسال تقرير خطأ مفصل للأدمن"""
+    error_report = f"""
+🔴 *خطأ في التحميل* 🔴
+━━━━━━━━━━━━━━━━━━━
+👤 *المستخدم:* `{user_id}`
+📱 *المنصة:* {platform}
+🔗 *الرابط:* `{url[:100]}...`
+
+❌ *الخطأ:* {error_msg}
+📋 *كود الخطأ:* {error_code or "UNKNOWN"}
+
+⏱️ *التوقيت:* {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+━━━━━━━━━━━━━━━━━━━
+💡 *نصيحة:* 
+{_get_advice(error_code, error_msg)}
+━━━━━━━━━━━━━━━━━━━
+✨ {SIGNATURE} ✨
+"""
+
+    # لو في traceback (للأخطاء المعقدة)
+    if tb:
+        error_report += f"\n📄 *التفاصيل:*\n```\n{tb[:500]}\n```"
+
+    # إرسال للأدمن
+    for admin_id in ADMIN_IDS:
+        try:
+            await context.bot.send_message(
+                admin_id,
+                error_report,
+                parse_mode="Markdown"
+            )
+        except:
+            pass
+
+
+def _get_advice(error_code, error_msg):
+    """نصائح حسب نوع الخطأ"""
+    advice = {
+        "TIMEOUT": "⏰ التحميل استغرق وقتاً طويلاً. جرب رابط آخر أو جودة أقل.",
+        "COOKIES_REQUIRED": "🍪 يوتيوب طلب تسجيل دخول. حمّل ملف cookies.txt وارفعه على GitHub.",
+        "COOKIES_ERROR": "🍪 ملف الكوكيز تالف أو منتهي الصلاحية. جيب كوكيز جديدة.",
+        "PRIVATE_VIDEO": "🔒 الفيديو خاص. استخدم رابط فيديو عام.",
+        "VIDEO_UNAVAILABLE": "🚫 الفيديو غير متاح (اتحذف أو اتغيرت صلاحياته).",
+        "AGE_RESTRICTED": "🔞 الفيديو مقيد بعمر. استخدم حساب مسجل الدخول.",
+        "FORMAT_NOT_AVAILABLE": "📹 الجودة المطلوبة غير متاحة. جرب جودة أقل.",
+        "RATE_LIMIT": "⏳ تم تجاوز حد التحميل. انتظر شوية وحاول تاني.",
+        "IP_BLOCKED": "🌐 الـ IP بتاع السيرفر محظور من المنصة. جرب بعد فترة.",
+        "FFMPEG_MISSING": "🎬 FFmpeg مش موجود. تأكد من تثبيته على السيرفر.",
+    }
+
+    # البحث عن نصيحة حسب كود الخطأ
+    if error_code in advice:
+        return advice[error_code]
+
+    # لو مفيش كود، جرب البحث في النص
+    for key, value in advice.items():
+        if key.lower() in error_msg.lower():
+            return value
+
+    return "🔄 جرب رابط آخر أو حاول مرة أخرى."
 
 
 async def handle_message(update, context):
     user = update.effective_user
+    user_id = user.id
 
     url = extract_link(update.message.text)
 
@@ -35,14 +100,19 @@ async def handle_message(update, context):
             error_msg = result.get("error", "Unknown error")
             error_code = result.get("error_code", "UNKNOWN")
 
-            # رسالة مخصصة حسب نوع الخطأ
-            final_msg = f"❌ {error_msg}"
+            # ===== رسالة للمستخدم (عامة) =====
+            user_msg = f"❌ {get_random_error_text()}\n💡 جرب رابط آخر أو حاول مرة أخرى."
+            await msg.edit_text(user_msg)
 
-            # إضافة نصيحة إضافية حسب نوع الخطأ
-            if error_code == "COOKIES_REQUIRED":
-                final_msg += "\n\n📌 عشان تشتغل يوتيوب وفيسبوك محتاج:\n1. تطلع كوكيز من متصفحك\n2. ترفعهم على GitHub"
-
-            await msg.edit_text(final_msg)
+            # ===== رسالة للأدمن (مفصلة) =====
+            await send_admin_error(
+                context,
+                user_id,
+                url,
+                platform,
+                error_msg,
+                error_code
+            )
             return
 
         file_path = result.get("file_path")
@@ -50,6 +120,14 @@ async def handle_message(update, context):
 
         if not os.path.exists(file_path):
             await msg.edit_text("❌ الملف غير موجود بعد التحميل")
+            await send_admin_error(
+                context,
+                user_id,
+                url,
+                platform,
+                "File not found after download",
+                "FILE_NOT_FOUND"
+            )
             return
 
         file_size = os.path.getsize(file_path) / 1048576
@@ -77,5 +155,27 @@ async def handle_message(update, context):
 
         await msg.delete()
 
+    except asyncio.TimeoutError:
+        await msg.edit_text("❌ استغرق التحميل وقتاً طويلاً، جرب تاني")
+        await send_admin_error(
+            context,
+            user_id,
+            url,
+            platform,
+            "Timeout during download",
+            "TIMEOUT",
+            traceback.format_exc()
+        )
+
     except Exception as e:
-        await msg.edit_text(f"❌ حدث خطأ أثناء التحميل\n```\n{str(e)[:200]}\n```")
+        error_msg = str(e)
+        await msg.edit_text(f"❌ حدث خطأ أثناء التحميل\n💡 جرب رابط آخر")
+        await send_admin_error(
+            context,
+            user_id,
+            url,
+            platform,
+            error_msg,
+            "EXCEPTION",
+            traceback.format_exc()
+    )
