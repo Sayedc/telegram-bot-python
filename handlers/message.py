@@ -7,8 +7,9 @@ from datetime import datetime
 from config import SIGNATURE, ADMIN_IDS
 from core import downloader, metrics
 from utils.helpers import extract_link, get_platform
-from utils.messages import get_random_processing_text, get_random_success_text, get_random_error_text
+from utils.messages import get_random_error_text, get_random_success_text
 from database.user_repository import increase_downloads
+from ui.loading import LoadingMessage
 
 
 async def send_admin_error(context, user_id, url, platform, error_msg, error_code=None, tb=None):
@@ -96,10 +97,10 @@ async def handle_message(update, context):
     quality = context.user_data.get("quality", "720")
     audio = context.user_data.get("audio", False)
 
-    msg = await update.message.reply_text(
-        f"🔄 جاري التحميل...\n📱 {platform}\n⏳ يرجى الانتظار..."
-    )
-
+    # ===== شاشة التحميل الفاخرة =====
+    loading = LoadingMessage(update.message)
+    msg = await loading.start(platform)
+    loading_task = asyncio.create_task(loading.animate(platform))
     start_time = datetime.now()
 
     try:
@@ -113,6 +114,10 @@ async def handle_message(update, context):
         if not result or not result.get("success"):
             error_msg = result.get("error", "Unknown error")
             error_code = result.get("error_code", "UNKNOWN_ERROR")
+
+            # إيقاف الأنيميشن
+            loading.stop()
+            await loading_task
 
             user_msg = f"❌ {get_random_error_text()}\n💡 جرب رابط آخر أو حاول مرة أخرى."
             await msg.edit_text(user_msg)
@@ -139,6 +144,8 @@ async def handle_message(update, context):
                 print("FILE SIZE:", os.path.getsize(file_path))
 
         if not file_path or not os.path.exists(file_path):
+            loading.stop()
+            await loading_task
             await msg.edit_text("❌ الملف غير موجود بعد التحميل")
             await send_admin_error(
                 context,
@@ -149,6 +156,10 @@ async def handle_message(update, context):
                 "FILE_NOT_FOUND"
             )
             return
+
+        # إيقاف الأنيميشن قبل إرسال الملف
+        loading.stop()
+        await loading_task
 
         file_size = os.path.getsize(file_path) / 1048576
 
@@ -184,6 +195,12 @@ async def handle_message(update, context):
         await msg.delete()
 
     except asyncio.TimeoutError:
+        loading.stop()
+        try:
+            await loading_task
+        except:
+            pass
+
         await msg.edit_text("❌ استغرق التحميل وقتاً طويلاً، جرب تاني")
         await send_admin_error(
             context,
@@ -196,6 +213,12 @@ async def handle_message(update, context):
         )
 
     except Exception as e:
+        loading.stop()
+        try:
+            await loading_task
+        except:
+            pass
+
         print("=" * 60)
         print("FATAL ERROR")
         print(repr(e))
@@ -214,4 +237,4 @@ async def handle_message(update, context):
             str(e),
             "EXCEPTION",
             traceback.format_exc()
-    )
+)
