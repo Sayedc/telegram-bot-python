@@ -1,33 +1,47 @@
 import asyncio
 
-from utils.messages import (
-    PROGRESS_BAR,
-    get_processing,
-)
+BARS = [
+    "▰▱▱▱▱",
+    "▰▰▱▱▱",
+    "▰▰▰▱▱",
+    "▰▰▰▰▱",
+    "▰▰▰▰▰",
+]
+
+ICONS = {
+    "YouTube": "▶️",
+    "TikTok": "🎵",
+    "Instagram": "📸",
+    "Facebook": "📘",
+    "Twitter": "🐦",
+    "X": "🐦",
+    "SoundCloud": "🎧",
+}
 
 
 class LoadingMessage:
 
-    def __init__(self, message, platform="Unknown"):
+    def __init__(self, message, platform="Media"):
         self.message = message
         self.platform = platform
         self.running = True
 
     async def animate(self):
+
         step = 0
 
         while self.running:
 
-            progress = PROGRESS_BAR[min(step, len(PROGRESS_BAR) - 1)]
+            bar = BARS[step]
+
+            icon = ICONS.get(self.platform, "📁")
 
             text = (
-                "━━━━━━━━━━━━━━━\n\n"
-                "🤖 Alhawy Downloader\n\n"
-                f"📱 {self.platform}\n\n"
-                "━━━━━━━━━━━━━━━\n\n"
-                f"{get_processing(step)}\n\n"
-                f"{progress}\n\n"
-                "━━━━━━━━━━━━━━━"
+                "━━━━━━━━━━━━━━\n\n"
+                "⬇️ جاري التحميل\n\n"
+                f"{icon} {self.platform}\n\n"
+                f"{bar}\n\n"
+                "━━━━━━━━━━━━━━"
             )
 
             try:
@@ -35,10 +49,12 @@ class LoadingMessage:
             except Exception:
                 pass
 
-            if step < len(PROGRESS_BAR) - 1:
-                step += 1
+            step += 1
 
-            await asyncio.sleep(1.2)
+            if step >= len(BARS):
+                step = 0
+
+            await asyncio.sleep(0.6)
 
     def stop(self):
         self.running = False
