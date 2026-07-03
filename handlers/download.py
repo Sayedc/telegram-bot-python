@@ -11,6 +11,7 @@ from services.tiktok import download_tiktok
 from services.youtube import download_youtube
 from services.facebook import download_facebook
 from services.instagram import download_instagram
+from utils.signature import SIGNATURE
 
 
 async def handle_download(update, context):
