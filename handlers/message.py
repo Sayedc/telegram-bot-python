@@ -10,7 +10,7 @@ from utils.helpers import extract_link, get_platform
 from utils.messages import get_random_success, get_error
 from database.user_repository import increase_downloads
 from utils.loading import LoadingMessage
-from utils.signature import SIGNATURE
+from utils.signature import SIGNATURE  # تمت الإضافة
 
 
 async def send_admin_error(context, user_id, url, platform, error_msg, error_code=None, tb=None):
@@ -99,7 +99,12 @@ async def handle_message(update, context):
     audio = context.user_data.get("audio", False)
 
     # ===== شاشة التحميل الفاخرة =====
-    msg = await update.message.reply_text("⬇️ جاري التحميل...")
+    msg = await update.message.reply_text(
+        "⬇️ جاري التحميل...\n"
+        f"📱 {platform}\n"
+        "⏳ يرجى الانتظار...\n\n"
+        f"{SIGNATURE}"
+    )
 
     loading = LoadingMessage(msg, platform)
     loading_task = asyncio.create_task(loading.animate())
@@ -124,7 +129,9 @@ async def handle_message(update, context):
             error_code = result.get("error_code", "UNKNOWN_ERROR")
 
             loading.stop()
-            await msg.edit_text(get_error(error_code))
+            await msg.edit_text(
+                f"{get_error(error_code)}\n\n{SIGNATURE}"
+            )
 
             await send_admin_error(
                 context,
@@ -149,7 +156,9 @@ async def handle_message(update, context):
 
         if not file_path or not os.path.exists(file_path):
             loading.stop()
-            await msg.edit_text(get_error("FILE_NOT_FOUND"))
+            await msg.edit_text(
+                f"{get_error('FILE_NOT_FOUND')}\n\n{SIGNATURE}"
+            )
             
             await send_admin_error(
                 context,
@@ -207,7 +216,9 @@ async def handle_message(update, context):
         except:
             pass
 
-        await msg.edit_text("❌ استغرق التحميل وقتاً طويلاً، جرب تاني")
+        await msg.edit_text(
+            f"❌ استغرق التحميل وقتاً طويلاً، جرب تاني\n\n{SIGNATURE}"
+        )
         await send_admin_error(
             context,
             user_id,
@@ -232,7 +243,7 @@ async def handle_message(update, context):
         print("=" * 60)
 
         await msg.edit_text(
-            f"❌ حدث خطأ أثناء التحميل\n\n{str(e)[:150]}"
+            f"❌ حدث خطأ أثناء التحميل\n\n{str(e)[:150]}\n\n{SIGNATURE}"
         )
 
         await send_admin_error(
@@ -243,4 +254,4 @@ async def handle_message(update, context):
             str(e),
             "EXCEPTION",
             traceback.format_exc()
-    )
+        )
