@@ -122,7 +122,13 @@ async def handle_message(update, context):
             error_msg = result.get("error", "Unknown error")
             error_code = result.get("error_code", "UNKNOWN_ERROR")
 
-            await msg.edit_text(
+            # حذف رسالة التحميل وإرسال رسالة خطأ جديدة
+            try:
+                await msg.delete()
+            except:
+                pass
+
+            await update.message.reply_text(
                 get_error(error_code)
             )
 
@@ -148,7 +154,13 @@ async def handle_message(update, context):
                 print("FILE SIZE:", os.path.getsize(file_path))
 
         if not file_path or not os.path.exists(file_path):
-            await msg.edit_text(
+            # حذف رسالة التحميل وإرسال رسالة خطأ جديدة
+            try:
+                await msg.delete()
+            except:
+                pass
+
+            await update.message.reply_text(
                 get_error("FILE_NOT_FOUND")
             )
             await send_admin_error(
@@ -193,6 +205,11 @@ async def handle_message(update, context):
         metrics.record_download(elapsed, platform, user.id)
 
         await msg.delete()
+        
+        # إرسال رسالة تأكيد بعد نجاح التحميل
+        await update.message.reply_text(
+            "✅ تم تجهيز الملف.\n\n📤 جاري الإرسال..."
+        )
 
     except asyncio.TimeoutError:
         loading.stop()
@@ -237,4 +254,4 @@ async def handle_message(update, context):
             str(e),
             "EXCEPTION",
             traceback.format_exc()
-    )
+                )
