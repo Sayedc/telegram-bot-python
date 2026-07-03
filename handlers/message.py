@@ -7,7 +7,7 @@ from datetime import datetime
 from config import SIGNATURE, ADMIN_IDS
 from core import downloader, metrics
 from utils.helpers import extract_link, get_platform
-from utils.messages import get_random_error_text, get_random_success_text
+from utils.messages import get_random_success, get_error
 from database.user_repository import increase_downloads
 from ui.loading import LoadingMessage
 
@@ -98,13 +98,32 @@ async def handle_message(update, context):
     audio = context.user_data.get("audio", False)
 
     # ===== شاشة التحميل الفاخرة =====
-    loading = LoadingMessage(update.message)
-    msg = await loading.start(platform)
-    loading_task = asyncio.create_task(loading.animate(platform))
+    msg = await update.message.reply_text("🚀")
+
+    loading = LoadingMessage(
+        msg,
+        platform=platform
+    )
+
+    loading_task = asyncio.create_task(
+        loading.animate()
+    )
+
     start_time = datetime.now()
 
     try:
-        result = await downloader.download(url, quality, audio)
+        result = await downloader.download(
+            url,
+            quality,
+            audio,
+        )
+
+        loading.stop()
+
+        try:
+            await loading_task
+        except:
+            pass
 
         print("=" * 60)
         print("DOWNLOAD RESULT:")
@@ -115,12 +134,9 @@ async def handle_message(update, context):
             error_msg = result.get("error", "Unknown error")
             error_code = result.get("error_code", "UNKNOWN_ERROR")
 
-            # إيقاف الأنيميشن
-            loading.stop()
-            await loading_task
-
-            user_msg = f"❌ {get_random_error_text()}\n💡 جرب رابط آخر أو حاول مرة أخرى."
-            await msg.edit_text(user_msg)
+            await msg.edit_text(
+                get_error(error_code)
+            )
 
             await send_admin_error(
                 context,
@@ -144,9 +160,9 @@ async def handle_message(update, context):
                 print("FILE SIZE:", os.path.getsize(file_path))
 
         if not file_path or not os.path.exists(file_path):
-            loading.stop()
-            await loading_task
-            await msg.edit_text("❌ الملف غير موجود بعد التحميل")
+            await msg.edit_text(
+                get_error("FILE_NOT_FOUND")
+            )
             await send_admin_error(
                 context,
                 user_id,
@@ -159,7 +175,10 @@ async def handle_message(update, context):
 
         # إيقاف الأنيميشن قبل إرسال الملف
         loading.stop()
-        await loading_task
+        try:
+            await loading_task
+        except:
+            pass
 
         file_size = os.path.getsize(file_path) / 1048576
 
@@ -169,7 +188,7 @@ async def handle_message(update, context):
                     await update.message.reply_audio(
                         audio=f,
                         title=title[:50],
-                        caption=f"{get_random_success_text()}\n\n{SIGNATURE}",
+                        caption=f"{get_random_success()}\n\n{SIGNATURE}",
                     )
             else:
                 with open(file_path, "rb") as f:
@@ -237,4 +256,4 @@ async def handle_message(update, context):
             str(e),
             "EXCEPTION",
             traceback.format_exc()
-)
+    )
