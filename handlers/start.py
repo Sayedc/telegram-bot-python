@@ -6,6 +6,7 @@ from keyboards.main_keyboard import main_keyboard, admin_keyboard
 from utils.messages import WELCOME_RESPONSES, get_response
 from security import is_blocked
 from config import ADMIN_IDS
+from utils.signature import SIGNATURE
 
 
 # ==========================
