@@ -1,45 +1,119 @@
 import random
 
+# =========================
+# رسائل الترحيب
+# =========================
+
 WELCOME_RESPONSES = [
-    "أتمنى لك يوماً سعيداً ❤️",
-    "جاهز لتحميل أي رابط 🚀",
-    "أرسل الرابط وسأتولى الباقي 😎",
-    "مرحباً بك من جديد 🌍",
-    "أهلاً بك في أفضل بوت تحميل 🔥"
+    "👋 أهلاً بك في Alhawy Downloader",
+    "🚀 أرسل الرابط وسأتولى الباقي.",
+    "❤️ جاهز لتحميل أي فيديو أو صوت.",
 ]
+
+# =========================
+# رسائل النجاح
+# =========================
 
 SUCCESS_RESPONSES = [
-    "تم التحميل بنجاح ✅",
-    "كل شيء جاهز 🎉",
-    "استمتع بالفيديو ❤️",
-    "تم التنفيذ بنجاح 🚀"
+    "✅ تم التحميل بنجاح.",
+    "🎉 الفيديو أصبح جاهز.",
+    "📥 اكتملت العملية بنجاح.",
 ]
 
-ERROR_RESPONSES = [
-    "حدث خطأ ❌",
-    "تعذر التحميل 😥",
-    "حاول مرة أخرى لاحقاً ⚠️"
+# =========================
+# رسائل المعالجة
+# =========================
+
+PROCESSING_MESSAGES = [
+    "🔍 جاري فحص الرابط...",
+    "🌐 جاري الاتصال بالخادم...",
+    "📥 جاري تحميل الملف...",
+    "⚙️ جاري تجهيز الملف...",
+    "📤 جاري إرسال الملف...",
 ]
 
-PROCESSING_RESPONSES = [
-    "جارى التحميل... ⏳",
-    "يرجى الانتظار قليلاً 🚀",
-    "جارى معالجة الرابط 📥"
+# =========================
+# رسائل الأخطاء للمستخدم
+# =========================
+
+ERROR_MESSAGES = {
+    "FORMAT_NOT_AVAILABLE": (
+        "⚠️ نوع المشكلة\n\n"
+        "📹 الجودة غير متوفرة\n\n"
+        "💡 جرّب جودة أقل."
+    ),
+
+    "COOKIES_REQUIRED": (
+        "⚠️ نوع المشكلة\n\n"
+        "🍪 يلزم تسجيل الدخول إلى YouTube."
+    ),
+
+    "PRIVATE_VIDEO": (
+        "⚠️ نوع المشكلة\n\n"
+        "🔒 الفيديو خاص."
+    ),
+
+    "VIDEO_UNAVAILABLE": (
+        "⚠️ نوع المشكلة\n\n"
+        "🚫 الفيديو غير متاح."
+    ),
+
+    "AGE_RESTRICTED": (
+        "⚠️ نوع المشكلة\n\n"
+        "🔞 الفيديو مقيد بالعمر."
+    ),
+
+    "RATE_LIMIT": (
+        "⚠️ نوع المشكلة\n\n"
+        "🚦 تم تجاوز الحد المسموح.\n"
+        "حاول مرة أخرى بعد قليل."
+    ),
+
+    "TIMEOUT": (
+        "⚠️ نوع المشكلة\n\n"
+        "⌛ انتهت مهلة التحميل."
+    ),
+
+    "FILE_NOT_FOUND": (
+        "⚠️ نوع المشكلة\n\n"
+        "📁 لم يتم العثور على الملف."
+    ),
+
+    "UNKNOWN_ERROR": (
+        "⚠️ حدث خطأ غير متوقع."
+    )
+}
+
+# =========================
+# شريط التقدم
+# =========================
+
+PROGRESS_BAR = [
+    "⬜⬜⬜⬜⬜",
+    "🟩⬜⬜⬜⬜",
+    "🟩🟩⬜⬜⬜",
+    "🟩🟩🟩⬜⬜",
+    "🟩🟩🟩🟩⬜",
+    "🟩🟩🟩🟩🟩",
 ]
 
 
-def get_response(lst, name=""):
-    text = random.choice(lst)
-    return text.replace("{name}", name)
-
-
-def get_random_success_text():
+def get_random_success():
     return random.choice(SUCCESS_RESPONSES)
 
 
-def get_random_error_text():
-    return random.choice(ERROR_RESPONSES)
+def get_random_welcome():
+    return random.choice(WELCOME_RESPONSES)
 
 
-def get_random_processing_text():
-    return random.choice(PROCESSING_RESPONSES)
+def get_processing(step):
+    if step < len(PROCESSING_MESSAGES):
+        return PROCESSING_MESSAGES[step]
+    return PROCESSING_MESSAGES[-1]
+
+
+def get_error(error_code):
+    return ERROR_MESSAGES.get(
+        error_code,
+        "⚠️ حدث خطأ غير معروف."
+    )
