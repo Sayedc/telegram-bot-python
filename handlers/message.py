@@ -10,6 +10,7 @@ from utils.helpers import extract_link, get_platform
 from utils.messages import get_random_success, get_error
 from database.user_repository import increase_downloads
 from utils.loading import LoadingMessage
+from utils.signature import SIGNATURE
 
 
 async def send_admin_error(context, user_id, url, platform, error_msg, error_code=None, tb=None):
