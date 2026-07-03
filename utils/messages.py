@@ -169,3 +169,19 @@ def get_status_message(stage: str):
 def get_response(lst, name=""):
     text = random.choice(lst)
     return text.replace("{name}", name)
+
+
+def get_random_success_text():
+    return get_random_success()
+
+
+def get_random_error_text():
+    return random.choice([
+        "حدث خطأ ❌",
+        "تعذر التحميل 😥",
+        "حاول مرة أخرى لاحقًا ⚠️",
+    ])
+
+
+def get_random_processing_text():
+    return random.choice(PROCESSING_MESSAGES)
