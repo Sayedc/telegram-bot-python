@@ -108,11 +108,16 @@ async def handle_message(update, context):
     start_time = datetime.now()
 
     try:
-        result = await downloader.download(url, quality, audio)
+    result = await downloader.download(url, quality, audio)
 
-        if not result or not result.get("success"):
-            error_msg = result.get("error", "Unknown error")
-            error_code = result.get("error_code", "UNKNOWN_ERROR")
+    print("=" * 60)
+    print("DOWNLOAD RESULT:")
+    print(result)
+    print("=" * 60)
+
+    if not result or not result.get("success"):
+        error_msg = result.get("error", "Unknown error")
+        error_code = result.get("error_code", "UNKNOWN_ERROR")
 
             # ===== رسالة للمستخدم (عامة) =====
             user_msg = f"❌ {get_random_error_text()}\n💡 جرب رابط آخر أو حاول مرة أخرى."
