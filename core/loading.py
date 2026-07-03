@@ -1,9 +1,6 @@
 import asyncio
 
-from utils.messages import (
-    PROGRESS_BAR,
-    get_processing,
-)
+from utils.messages import PROGRESS_BAR
 
 
 class LoadingMessage:
@@ -17,23 +14,32 @@ class LoadingMessage:
 
         step = 0
 
+        stages = [
+            "🔗 الاتصال بالخادم...",
+            "🔍 تحليل الرابط...",
+            "📋 استخراج البيانات...",
+            "⬇️ تنزيل الوسائط...",
+            "🛠️ تجهيز الملف...",
+            "📦 تجهيز الإرسال...",
+        ]
+
         while self.running:
 
             progress = PROGRESS_BAR[min(step, len(PROGRESS_BAR) - 1)]
+            status = stages[min(step, len(stages) - 1)]
 
             text = (
-                "━━━━━━━━━━━━━━━\n\n"
+                "╭────────────────────╮\n\n"
                 "🤖 Alhawy Downloader\n\n"
-                f"📱 {self.platform}\n\n"
-                "━━━━━━━━━━━━━━━\n\n"
-                f"{get_processing(step)}\n\n"
+                f"🎬 المنصة: {self.platform}\n\n"
+                f"{status}\n\n"
                 f"{progress}\n\n"
-                "━━━━━━━━━━━━━━━"
+                "⏳ يرجى عدم إغلاق المحادثة\n\n"
+                "╰────────────────────╯"
             )
 
             try:
                 await self.message.edit_text(text)
-
             except Exception:
                 pass
 
