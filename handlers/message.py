@@ -9,10 +9,9 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from config import SIGNATURE, ADMIN_IDS
 from core import downloader, metrics
 from utils.helpers import extract_link, get_platform
-from utils.messages import get_random_success, get_error
+from utils.messages import get_random_success, get_error, signature
 from database.user_repository import increase_downloads
 from utils.loading import LoadingMessage
-from utils.signature import SIGNATURE
 
 
 # ===== Helper Functions =====
@@ -184,7 +183,8 @@ async def handle_message(update, context):
 
             await msg.edit_text(
                 get_error(error_code),
-                reply_markup=developer_button
+                reply_markup=developer_button,
+                parse_mode="HTML"
             )
 
             await send_admin_error(
@@ -211,7 +211,8 @@ async def handle_message(update, context):
         if not file_path or not os.path.exists(file_path):
             await msg.edit_text(
                 get_error("FILE_NOT_FOUND"),
-                reply_markup=developer_button
+                reply_markup=developer_button,
+                parse_mode="HTML"
             )
             
             await send_admin_error(
@@ -255,7 +256,8 @@ async def handle_message(update, context):
     except asyncio.TimeoutError:
         await msg.edit_text(
             get_error("TIMEOUT"),
-            reply_markup=developer_button
+            reply_markup=developer_button,
+            parse_mode="HTML"
         )
         await send_admin_error(
             context,
@@ -276,7 +278,8 @@ async def handle_message(update, context):
 
         await msg.edit_text(
             get_error("UNKNOWN_ERROR"),
-            reply_markup=developer_button
+            reply_markup=developer_button,
+            parse_mode="HTML"
         )
 
         await send_admin_error(
@@ -287,4 +290,4 @@ async def handle_message(update, context):
             str(e),
             "EXCEPTION",
             traceback.format_exc()
-)
+    )
