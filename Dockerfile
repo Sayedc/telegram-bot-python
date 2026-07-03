@@ -1,26 +1,26 @@
-FROM python:3.10-slim
+FROM python:3.12-slim
 
-# تثبيت الأدوات المطلوبة
 RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    git \
-    curl \
-    wget \
-    nodejs \
-    npm \
-    && rm -rf /var/lib/apt/lists/*
+ffmpeg \
+git \
+nodejs \
+npm \
+curl \
+wget \
+ca-certificates \
+&& rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY requirements.txt .
 
 RUN pip install --upgrade pip
-RUN pip install --no-cache-dir -r requirements.txt
-
-# تثبيت أحدث نسخة Nightly من yt-dlp
-RUN pip uninstall -y yt-dlp || true
-RUN pip install --pre -U yt-dlp
+RUN pip install -r requirements.txt
+RUN pip install -U yt-dlp
 
 COPY . .
+
+ENV YTDLP_JS_RUNTIMES=node
+ENV PYTHONUNBUFFERED=1
 
 CMD ["python", "main.py"]
