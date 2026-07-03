@@ -13,24 +13,39 @@ from utils.loading import LoadingMessage
 from utils.signature import SIGNATURE
 
 
+# ===== Helper Functions =====
+def platform_icon(platform: str):
+    if "youtube" in platform.lower():
+        return "▶️ 𝗬𝗼𝘂𝗧𝘂𝗯𝗲"
+    if "tiktok" in platform.lower():
+        return "🎵 𝗧𝗶𝗸𝗧𝗼𝗸"
+    if "facebook" in platform.lower():
+        return "📘 𝗙𝗮𝗰𝗲𝗯𝗼𝗼𝗸"
+    if "instagram" in platform.lower():
+        return "📸 𝗜𝗻𝘀𝘁𝗮𝗴𝗿𝗮𝗺"
+    return "▶️ 𝗠𝗲𝗱𝗶𝗮"
+
+
+def progress_bar(step: int):
+    bars = [
+        "⬛⬜⬜⬜⬜⬜",
+        "⬛⬛⬜⬜⬜⬜",
+        "⬛⬛⬛⬜⬜⬜",
+        "⬛⬛⬛⬛⬜⬜",
+        "⬛⬛⬛⬛⬛⬜",
+        "⬛⬛⬛⬛⬛⬛",
+    ]
+    return bars[min(step, len(bars) - 1)]
+
+
 # ===== شاشة التحميل المتحركة =====
 LOADING_STEPS = [
-    ("🔍 جاري التحضير", "▰▱▱▱▱"),
-    ("🌐 جاري الاتصال", "▰▰▱▱▱"),
-    ("📥 جاري التحميل", "▰▰▰▱▱"),
-    ("⚙️ جاري المعالجة", "▰▰▰▰▱"),
-    ("✨ إنهاء العملية", "▰▰▰▰▰"),
+    ("🔍 جاري التحضير", 0),
+    ("🌐 جاري الاتصال", 1),
+    ("📥 جاري التحميل", 2),
+    ("⚙️ جاري المعالجة", 3),
+    ("✨ إنهاء العملية", 4),
 ]
-
-
-def format_platform(name):
-    icons = {
-        "youtube": "▶️ 𝗬𝗼𝘂𝗧𝘂𝗯𝗲",
-        "tiktok": "🎵 𝗧𝗶𝗸𝗧𝗼𝗸",
-        "facebook": "📘 𝗙𝗮𝗰𝗲𝗯𝗼𝗼𝗸",
-        "instagram": "📸 𝗜𝗻𝘀𝘁𝗮𝗴𝗿𝗮𝗺",
-    }
-    return icons.get(name.lower(), f"▶️ 𝗔𝗹𝗹")
 
 
 async def animate_loading(message, platform):
@@ -39,9 +54,10 @@ async def animate_loading(message, platform):
         step = LOADING_STEPS[i % len(LOADING_STEPS)]
 
         text = (
+            "━━━━━━━━━━━━━━━━━━\n\n"
+            f"{platform_icon(platform)}\n\n"
             f"{step[0]}\n\n"
-            f"{format_platform(platform)}\n\n"
-            f"{step[1]}\n\n"
+            f"{progress_bar(step[1])}\n\n"
             f"{SIGNATURE}"
         )
 
@@ -139,14 +155,12 @@ async def handle_message(update, context):
     quality = context.user_data.get("quality", "720")
     audio = context.user_data.get("audio", False)
 
-    # ===== رد سريع أولي =====
-    await update.message.reply_text("⚡ جاري تحليل الرابط...")
-
-    # ===== شاشة التحميل المتحركة =====
+    # ===== كارت البداية =====
     msg = await update.message.reply_text(
+        "━━━━━━━━━━━━━━━━━━\n\n"
+        f"{platform_icon(platform)}\n\n"
         "🔍 جاري التحضير...\n\n"
-        f"{format_platform(platform)}\n\n"
-        "▰▱▱▱▱\n"
+        "⬛⬜⬜⬜⬜⬜\n\n"
         f"{SIGNATURE}"
     )
 
@@ -170,7 +184,10 @@ async def handle_message(update, context):
             error_code = result.get("error_code", "UNKNOWN_ERROR")
 
             await msg.edit_text(
-                f"{get_error(error_code)}\n\n{SIGNATURE}"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "⚠️ حدث خطأ أثناء التحميل\n"
+                "حاول مرة أخرى\n\n"
+                f"{SIGNATURE}"
             )
 
             await send_admin_error(
@@ -196,7 +213,10 @@ async def handle_message(update, context):
 
         if not file_path or not os.path.exists(file_path):
             await msg.edit_text(
-                f"{get_error('FILE_NOT_FOUND')}\n\n{SIGNATURE}"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "⚠️ حدث خطأ أثناء التحميل\n"
+                "حاول مرة أخرى\n\n"
+                f"{SIGNATURE}"
             )
             
             await send_admin_error(
@@ -210,6 +230,16 @@ async def handle_message(update, context):
             return
 
         file_size = os.path.getsize(file_path) / 1048576
+
+        # ===== رسالة إنهاء العملية =====
+        size_mb = round(file_size, 2)
+        await msg.edit_text(
+            "━━━━━━━━━━━━━━━━━━\n\n"
+            "✨ إنهاء العملية\n\n"
+            f"📦 {size_mb} MB\n"
+            f"🎞️ {quality}P\n\n"
+            f"{SIGNATURE}"
+        )
 
         try:
             if audio:
@@ -247,7 +277,10 @@ async def handle_message(update, context):
 
     except asyncio.TimeoutError:
         await msg.edit_text(
-            f"❌ استغرق التحميل وقتاً طويلاً، جرب تاني\n\n{SIGNATURE}"
+            "━━━━━━━━━━━━━━━━━━\n\n"
+            "⚠️ حدث خطأ أثناء التحميل\n"
+            "حاول مرة أخرى\n\n"
+            f"{SIGNATURE}"
         )
         await send_admin_error(
             context,
@@ -267,7 +300,10 @@ async def handle_message(update, context):
         print("=" * 60)
 
         await msg.edit_text(
-            f"❌ حدث خطأ أثناء التحميل\n\n{str(e)[:150]}\n\n{SIGNATURE}"
+            "━━━━━━━━━━━━━━━━━━\n\n"
+            "⚠️ حدث خطأ أثناء التحميل\n"
+            "حاول مرة أخرى\n\n"
+            f"{SIGNATURE}"
         )
 
         await send_admin_error(
@@ -278,4 +314,4 @@ async def handle_message(update, context):
             str(e),
             "EXCEPTION",
             traceback.format_exc()
-        )
+)
