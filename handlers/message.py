@@ -98,7 +98,7 @@ async def handle_message(update, context):
     audio = context.user_data.get("audio", False)
 
     # ===== شاشة التحميل الفاخرة =====
-    msg = await update.message.reply_text("⏳")
+    msg = await update.message.reply_text("⬇️ جاري التحميل...")
 
     loading = LoadingMessage(msg, platform)
     loading_task = asyncio.create_task(loading.animate())
@@ -122,15 +122,8 @@ async def handle_message(update, context):
             error_msg = result.get("error", "Unknown error")
             error_code = result.get("error_code", "UNKNOWN_ERROR")
 
-            # حذف رسالة التحميل وإرسال رسالة خطأ جديدة
-            try:
-                await msg.delete()
-            except:
-                pass
-
-            await update.message.reply_text(
-                get_error(error_code)
-            )
+            loading.stop()
+            await msg.edit_text(get_error(error_code))
 
             await send_admin_error(
                 context,
@@ -154,15 +147,9 @@ async def handle_message(update, context):
                 print("FILE SIZE:", os.path.getsize(file_path))
 
         if not file_path or not os.path.exists(file_path):
-            # حذف رسالة التحميل وإرسال رسالة خطأ جديدة
-            try:
-                await msg.delete()
-            except:
-                pass
-
-            await update.message.reply_text(
-                get_error("FILE_NOT_FOUND")
-            )
+            loading.stop()
+            await msg.edit_text(get_error("FILE_NOT_FOUND"))
+            
             await send_admin_error(
                 context,
                 user_id,
@@ -176,6 +163,9 @@ async def handle_message(update, context):
         file_size = os.path.getsize(file_path) / 1048576
 
         try:
+            loading.stop()
+            await asyncio.sleep(0.2)
+
             if audio:
                 with open(file_path, "rb") as f:
                     await update.message.reply_audio(
@@ -191,6 +181,11 @@ async def handle_message(update, context):
                         supports_streaming=True,
                     )
 
+            try:
+                await msg.delete()
+            except:
+                pass
+
             print("✅ FILE SENT SUCCESS")
 
         except Exception as send_error:
@@ -203,13 +198,6 @@ async def handle_message(update, context):
 
         elapsed = (datetime.now() - start_time).total_seconds()
         metrics.record_download(elapsed, platform, user.id)
-
-        await msg.delete()
-        
-        # إرسال رسالة تأكيد بعد نجاح التحميل
-        await update.message.reply_text(
-            "✅ تم تجهيز الملف.\n\n📤 جاري الإرسال..."
-        )
 
     except asyncio.TimeoutError:
         loading.stop()
@@ -254,4 +242,4 @@ async def handle_message(update, context):
             str(e),
             "EXCEPTION",
             traceback.format_exc()
-                )
+    )
