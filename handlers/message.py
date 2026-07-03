@@ -10,7 +10,48 @@ from utils.helpers import extract_link, get_platform
 from utils.messages import get_random_success, get_error
 from database.user_repository import increase_downloads
 from utils.loading import LoadingMessage
-from utils.signature import SIGNATURE  # تمت الإضافة
+from utils.signature import SIGNATURE
+
+
+# ===== شاشة التحميل المتحركة =====
+LOADING_STEPS = [
+    ("🔍 جاري التحضير", "▰▱▱▱▱"),
+    ("🌐 جاري الاتصال", "▰▰▱▱▱"),
+    ("📥 جاري التحميل", "▰▰▰▱▱"),
+    ("⚙️ جاري المعالجة", "▰▰▰▰▱"),
+    ("✨ إنهاء العملية", "▰▰▰▰▰"),
+]
+
+
+def format_platform(name):
+    icons = {
+        "youtube": "▶️ 𝗬𝗼𝘂𝗧𝘂𝗯𝗲",
+        "tiktok": "🎵 𝗧𝗶𝗸𝗧𝗼𝗸",
+        "facebook": "📘 𝗙𝗮𝗰𝗲𝗯𝗼𝗼𝗸",
+        "instagram": "📸 𝗜𝗻𝘀𝘁𝗮𝗴𝗿𝗮𝗺",
+    }
+    return icons.get(name.lower(), f"▶️ 𝗔𝗹𝗹")
+
+
+async def animate_loading(message, platform):
+    i = 0
+    while True:
+        step = LOADING_STEPS[i % len(LOADING_STEPS)]
+
+        text = (
+            f"{step[0]}\n\n"
+            f"{format_platform(platform)}\n\n"
+            f"{step[1]}\n\n"
+            f"{SIGNATURE}"
+        )
+
+        try:
+            await message.edit_text(text)
+        except:
+            pass
+
+        i += 1
+        await asyncio.sleep(1.5)
 
 
 async def send_admin_error(context, user_id, url, platform, error_msg, error_code=None, tb=None):
@@ -98,16 +139,18 @@ async def handle_message(update, context):
     quality = context.user_data.get("quality", "720")
     audio = context.user_data.get("audio", False)
 
-    # ===== شاشة التحميل الفاخرة =====
+    # ===== رد سريع أولي =====
+    await update.message.reply_text("⚡ جاري تحليل الرابط...")
+
+    # ===== شاشة التحميل المتحركة =====
     msg = await update.message.reply_text(
-        "⬇️ جاري التحميل...\n"
-        f"📱 {platform}\n"
-        "⏳ يرجى الانتظار...\n\n"
+        "🔍 جاري التحضير...\n\n"
+        f"{format_platform(platform)}\n\n"
+        "▰▱▱▱▱\n"
         f"{SIGNATURE}"
     )
 
-    loading = LoadingMessage(msg, platform)
-    loading_task = asyncio.create_task(loading.animate())
+    task = asyncio.create_task(animate_loading(msg, platform))
 
     start_time = datetime.now()
 
@@ -115,9 +158,7 @@ async def handle_message(update, context):
         try:
             result = await downloader.download(url, quality, audio)
         finally:
-            loading.stop()
-            await asyncio.sleep(0.2)
-            loading_task.cancel()
+            task.cancel()
 
         print("=" * 60)
         print("DOWNLOAD RESULT:")
@@ -128,7 +169,6 @@ async def handle_message(update, context):
             error_msg = result.get("error", "Unknown error")
             error_code = result.get("error_code", "UNKNOWN_ERROR")
 
-            loading.stop()
             await msg.edit_text(
                 f"{get_error(error_code)}\n\n{SIGNATURE}"
             )
@@ -155,7 +195,6 @@ async def handle_message(update, context):
                 print("FILE SIZE:", os.path.getsize(file_path))
 
         if not file_path or not os.path.exists(file_path):
-            loading.stop()
             await msg.edit_text(
                 f"{get_error('FILE_NOT_FOUND')}\n\n{SIGNATURE}"
             )
@@ -173,9 +212,6 @@ async def handle_message(update, context):
         file_size = os.path.getsize(file_path) / 1048576
 
         try:
-            loading.stop()
-            await asyncio.sleep(0.2)
-
             if audio:
                 with open(file_path, "rb") as f:
                     await update.message.reply_audio(
@@ -210,12 +246,6 @@ async def handle_message(update, context):
         metrics.record_download(elapsed, platform, user.id)
 
     except asyncio.TimeoutError:
-        loading.stop()
-        try:
-            await loading_task
-        except:
-            pass
-
         await msg.edit_text(
             f"❌ استغرق التحميل وقتاً طويلاً، جرب تاني\n\n{SIGNATURE}"
         )
@@ -230,12 +260,6 @@ async def handle_message(update, context):
         )
 
     except Exception as e:
-        loading.stop()
-        try:
-            await loading_task
-        except:
-            pass
-
         print("=" * 60)
         print("FATAL ERROR")
         print(repr(e))
