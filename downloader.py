@@ -1,4 +1,4 @@
-# downloader.py - النسخة النهائية بعد التعديلات
+# downloader.py - النسخة النهائية بدون js_runtimes
 import os
 import asyncio
 import yt_dlp
@@ -231,8 +231,6 @@ class Downloader:
                 "User-Agent": "Mozilla/5.0",
                 "Accept-Language": "en-US,en;q=0.9",
             },
-
-            "js_runtimes": ["node"],
 
             "extractor_args": {
                 "youtube": {
