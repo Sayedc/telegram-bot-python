@@ -4,6 +4,8 @@ import asyncio
 import traceback
 from datetime import datetime
 
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
 from config import SIGNATURE, ADMIN_IDS
 from core import downloader, metrics
 from utils.helpers import extract_link, get_platform
@@ -24,6 +26,12 @@ def platform_icon(platform: str):
     if "instagram" in platform.lower():
         return "📸 𝗜𝗻𝘀𝘁𝗮𝗴𝗿𝗮𝗺"
     return "▶️ 𝗠𝗲𝗱𝗶𝗮"
+
+
+# ===== زر المطور =====
+developer_button = InlineKeyboardMarkup([
+    [InlineKeyboardButton("👨‍💻 تواصل مع المطور", url="https://t.me/ALHAWY1")]
+])
 
 
 # ===== رسالة الترحيب =====
@@ -176,10 +184,10 @@ async def handle_message(update, context):
 
             await msg.edit_text(
                 "━━━━━━━━━━━━━━━━━━\n\n"
-                "⚠️ تعذر إكمال العملية\n\n"
-                "📹 الجودة غير متوفرة أو الرابط غير صالح\n\n"
-                "💡 جرّب رابط آخر\n\n"
-                "━━━━━━━━━━━━━━━━━━"
+                "⚠️ حدث خطأ غير متوقع\n\n"
+                "قد تكون المشكلة مؤقتة.\n\n"
+                "━━━━━━━━━━━━━━━━━━",
+                reply_markup=developer_button
             )
 
             await send_admin_error(
@@ -207,9 +215,8 @@ async def handle_message(update, context):
             await msg.edit_text(
                 "━━━━━━━━━━━━━━━━━━\n\n"
                 "⚠️ تعذر إكمال العملية\n\n"
-                "📹 الجودة غير متوفرة أو الرابط غير صالح\n\n"
-                "💡 جرّب رابط آخر\n\n"
-                "━━━━━━━━━━━━━━━━━━"
+                "━━━━━━━━━━━━━━━━━━",
+                reply_markup=developer_button
             )
             
             await send_admin_error(
@@ -253,10 +260,10 @@ async def handle_message(update, context):
     except asyncio.TimeoutError:
         await msg.edit_text(
             "━━━━━━━━━━━━━━━━━━\n\n"
-            "⚠️ تعذر إكمال العملية\n\n"
-            "📹 الجودة غير متوفرة أو الرابط غير صالح\n\n"
-            "💡 جرّب رابط آخر\n\n"
-            "━━━━━━━━━━━━━━━━━━"
+            "⚠️ حدث خطأ غير متوقع\n\n"
+            "قد تكون المشكلة مؤقتة.\n\n"
+            "━━━━━━━━━━━━━━━━━━",
+            reply_markup=developer_button
         )
         await send_admin_error(
             context,
@@ -277,10 +284,10 @@ async def handle_message(update, context):
 
         await msg.edit_text(
             "━━━━━━━━━━━━━━━━━━\n\n"
-            "⚠️ تعذر إكمال العملية\n\n"
-            "📹 الجودة غير متوفرة أو الرابط غير صالح\n\n"
-            "💡 جرّب رابط آخر\n\n"
-            "━━━━━━━━━━━━━━━━━━"
+            "⚠️ حدث خطأ غير متوقع\n\n"
+            "قد تكون المشكلة مؤقتة.\n\n"
+            "━━━━━━━━━━━━━━━━━━",
+            reply_markup=developer_button
         )
 
         await send_admin_error(
