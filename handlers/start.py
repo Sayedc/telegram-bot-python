@@ -35,7 +35,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # CLEAN MESSAGE (FIXED)
     # ==========================
     text = (
-        "🖤 أهلاً الحاوي و بطولي >666 ،! 🖤\n\n"
+        "🖤 أهلاً  ،! 🖤\n\n"
         "✨ ✨ 𝓐𝓵𝓱𝓪𝔀𝔂 ✨ ✨\n\n"
         "🌍 البوت بينزل أي حاجة من أي موقع\n\n"
         "📌 المنصات المدعومة:\n"
