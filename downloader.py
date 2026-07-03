@@ -1,4 +1,4 @@
-# downloader.py - مع أكواد خطأ محددة
+# downloader.py - مع print لكل خطوة + format محسّن
 import os
 import asyncio
 import yt_dlp
@@ -31,6 +31,7 @@ class Downloader:
         }
 
     async def download(self, url: str, quality="720", audio=False):
+        print(f"\n📥 DOWNLOAD START: {url[:50]}...")
         async with self.semaphore:
             self.active += 1
             try:
@@ -46,10 +47,12 @@ class Downloader:
                     timeout=120
                 )
                 self.success += 1
+                print(f"✅ DOWNLOAD COMPLETE: {result.get('title', 'Unknown')[:50]}...")
                 return result
 
             except asyncio.TimeoutError:
                 self.failed += 1
+                print("❌ DOWNLOAD TIMEOUT")
                 return {
                     "success": False,
                     "error": "Timed out",
@@ -58,6 +61,7 @@ class Downloader:
 
             except Exception as e:
                 self.failed += 1
+                print(f"❌ DOWNLOAD EXCEPTION: {e}")
                 return {
                     "success": False,
                     "error": str(e),
@@ -68,13 +72,21 @@ class Downloader:
                 self.active -= 1
 
     def _download_sync(self, url, quality, audio):
+        print("\n🔍 Starting download...")
+        print(f"URL: {url}")
+        print(f"Quality: {quality}")
+        print(f"Audio: {audio}")
+
         opts = self._build_opts(quality, audio, url)
 
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
+                print("⏳ Running yt-dlp...")
                 info = ydl.extract_info(url, download=True)
+                print("✅ yt-dlp finished")
 
                 if info is None:
+                    print("❌ INFO IS NONE")
                     return {
                         "success": False,
                         "error": "Invalid URL or unsupported platform",
@@ -82,16 +94,22 @@ class Downloader:
                     }
 
                 file_path = ydl.prepare_filename(info)
+                print(f"📁 File path: {file_path}")
 
                 if audio:
                     file_path = os.path.splitext(file_path)[0] + ".mp3"
+                    print(f"🎵 Audio file path: {file_path}")
 
                 if not os.path.exists(file_path):
+                    print(f"❌ FILE NOT FOUND: {file_path}")
                     return {
                         "success": False,
                         "error": "File not found after download",
                         "error_code": "FILE_NOT_FOUND"
                     }
+
+                print(f"📦 File size: {os.path.getsize(file_path)} bytes")
+                print(f"📝 Title: {info.get('title', 'Unknown')}")
 
                 return {
                     "success": True,
@@ -102,6 +120,7 @@ class Downloader:
 
         except yt_dlp.utils.DownloadError as e:
             error_msg = str(e)
+            print(f"❌ yt-dlp DOWNLOAD ERROR: {error_msg[:150]}")
 
             # ===== أكواد خطأ محددة =====
             if "Sign in to confirm" in error_msg:
@@ -174,6 +193,7 @@ class Downloader:
             }
 
         except Exception as e:
+            print(f"❌ UNKNOWN EXCEPTION: {e}")
             return {
                 "success": False,
                 "error": str(e)[:150],
@@ -203,6 +223,7 @@ class Downloader:
         cookies_file = self._get_cookies_file(url)
         if cookies_file and os.path.exists(cookies_file):
             opts["cookiefile"] = cookies_file
+            print(f"🍪 Using cookies: {cookies_file}")
 
         if url and "tiktok" in url:
             opts["extractor_args"] = {
@@ -210,6 +231,7 @@ class Downloader:
                     "without_watermark": ["true"],
                 }
             }
+            print("🎵 TikTok: without watermark enabled")
 
         if audio:
             opts.update({
@@ -220,12 +242,15 @@ class Downloader:
                     "preferredquality": "192",
                 }],
             })
+            print("🎵 Audio mode: MP3 extraction enabled")
         else:
             opts.update({
-                "format": fmt,
+                "format": "bv*+ba/b",
                 "merge_output_format": "mp4",
             })
+            print("🎬 Video mode: format=bv*+ba/b")
 
+        print(f"⚙️ Options: cookies={cookies_file if cookies_file else 'None'}, format={opts.get('format', 'default')}")
         return opts
 
     def _get_cookies_file(self, url):
@@ -258,4 +283,5 @@ class Downloader:
         if os.path.exists(default_path):
             return default_path
 
+        print("⚠️ No cookies file found")
         return None
