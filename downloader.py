@@ -1,4 +1,4 @@
-# downloader.py - مع print لكل خطوة + format محسّن
+# downloader.py - النسخة النهائية بعد التعديلات
 import os
 import asyncio
 import yt_dlp
@@ -216,8 +216,31 @@ class Downloader:
             "outtmpl": os.path.join(self.download_path, "%(title)s.%(ext)s"),
             "quiet": True,
             "no_warnings": True,
-            "ignoreerrors": True,
+            "ignoreerrors": False,
             "noplaylist": True,
+
+            "retries": 10,
+            "fragment_retries": 10,
+            "extractor_retries": 5,
+
+            "socket_timeout": 30,
+            "geo_bypass": True,
+            "nocheckcertificate": True,
+
+            "http_headers": {
+                "User-Agent": "Mozilla/5.0",
+                "Accept-Language": "en-US,en;q=0.9",
+            },
+
+            "js_runtimes": ["node"],
+
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android", "web", "tv"],
+                }
+            },
+
+            "concurrent_fragment_downloads": 1,
         }
 
         cookies_file = self._get_cookies_file(url)
@@ -235,7 +258,7 @@ class Downloader:
 
         if audio:
             opts.update({
-                "format": "bestaudio/best",
+                "format": "bestaudio[ext=m4a]/bestaudio/best",
                 "postprocessors": [{
                     "key": "FFmpegExtractAudio",
                     "preferredcodec": "mp3",
@@ -245,10 +268,13 @@ class Downloader:
             print("🎵 Audio mode: MP3 extraction enabled")
         else:
             opts.update({
-                "format": "bv*+ba/b",
+                "format": (
+                    "bv*[height<=720]+ba/bv*+ba/"
+                    "bestvideo[height<=720]+bestaudio/best"
+                ),
                 "merge_output_format": "mp4",
             })
-            print("🎬 Video mode: format=bv*+ba/b")
+            print("🎬 Video mode: advanced format with fallback")
 
         print(f"⚙️ Options: cookies={cookies_file if cookies_file else 'None'}, format={opts.get('format', 'default')}")
         return opts
