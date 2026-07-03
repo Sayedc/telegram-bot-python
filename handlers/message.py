@@ -14,7 +14,6 @@ from database.user_repository import increase_downloads
 async def send_admin_error(context, user_id, url, platform, error_msg, error_code=None, tb=None):
     """إرسال تقرير خطأ مفصل للأدمن"""
     
-    # رسائل الخطأ حسب النوع
     error_emojis = {
         "TIMEOUT": "⏰",
         "COOKIES_REQUIRED": "🍪",
@@ -35,7 +34,6 @@ async def send_admin_error(context, user_id, url, platform, error_msg, error_cod
     
     emoji = error_emojis.get(error_code, "❌")
     
-    # نصائح حسب نوع الخطأ
     advice_map = {
         "TIMEOUT": "⏰ التحميل استغرق وقتاً طويلاً. جرب رابط آخر أو جودة أقل.",
         "COOKIES_REQUIRED": "🍪 يوتيوب طلب تسجيل دخول. حمّل ملف cookies.txt وارفعه على GitHub.",
@@ -53,7 +51,6 @@ async def send_admin_error(context, user_id, url, platform, error_msg, error_cod
     
     advice = advice_map.get(error_code, "🔄 جرب رابط آخر أو حاول مرة أخرى.")
     
-    # بناء التقرير
     error_report = f"""
 {emoji} *تقرير خطأ في التحميل* {emoji}
 ━━━━━━━━━━━━━━━━━━━
@@ -71,11 +68,9 @@ async def send_admin_error(context, user_id, url, platform, error_msg, error_cod
 ✨ {SIGNATURE} ✨
 """
 
-    # لو في traceback (للأخطاء المعقدة)
     if tb:
         error_report += f"\n📄 *التفاصيل:*\n```\n{tb[:500]}\n```"
 
-    # إرسال للأدمن
     for admin_id in ADMIN_IDS:
         try:
             await context.bot.send_message(
@@ -108,22 +103,20 @@ async def handle_message(update, context):
     start_time = datetime.now()
 
     try:
-    result = await downloader.download(url, quality, audio)
+        result = await downloader.download(url, quality, audio)
 
-    print("=" * 60)
-    print("DOWNLOAD RESULT:")
-    print(result)
-    print("=" * 60)
+        print("=" * 60)
+        print("DOWNLOAD RESULT:")
+        print(result)
+        print("=" * 60)
 
-    if not result or not result.get("success"):
-        error_msg = result.get("error", "Unknown error")
-        error_code = result.get("error_code", "UNKNOWN_ERROR")
+        if not result or not result.get("success"):
+            error_msg = result.get("error", "Unknown error")
+            error_code = result.get("error_code", "UNKNOWN_ERROR")
 
-            # ===== رسالة للمستخدم (عامة) =====
             user_msg = f"❌ {get_random_error_text()}\n💡 جرب رابط آخر أو حاول مرة أخرى."
             await msg.edit_text(user_msg)
 
-            # ===== رسالة للأدمن (مفصلة) =====
             await send_admin_error(
                 context,
                 user_id,
@@ -137,7 +130,15 @@ async def handle_message(update, context):
         file_path = result.get("file_path")
         title = result.get("title", "Media")
 
-        if not os.path.exists(file_path):
+        print("FILE PATH:", file_path)
+
+        if file_path:
+            print("FILE EXISTS:", os.path.exists(file_path))
+
+            if os.path.exists(file_path):
+                print("FILE SIZE:", os.path.getsize(file_path))
+
+        if not file_path or not os.path.exists(file_path):
             await msg.edit_text("❌ الملف غير موجود بعد التحميل")
             await send_admin_error(
                 context,
@@ -151,20 +152,28 @@ async def handle_message(update, context):
 
         file_size = os.path.getsize(file_path) / 1048576
 
-        if audio:
-            with open(file_path, "rb") as f:
-                await update.message.reply_audio(
-                    f,
-                    title=title[:50],
-                    caption=f"{get_random_success_text()}\n\n{SIGNATURE}",
-                )
-        else:
-            with open(file_path, "rb") as f:
-                await update.message.reply_video(
-                    f,
-                    caption=f"🎬 {title[:60]}\n📦 {file_size:.1f} MB\n⚡ {quality}p\n📱 {platform}\n\n{SIGNATURE}",
-                    supports_streaming=True,
-                )
+        try:
+            if audio:
+                with open(file_path, "rb") as f:
+                    await update.message.reply_audio(
+                        audio=f,
+                        title=title[:50],
+                        caption=f"{get_random_success_text()}\n\n{SIGNATURE}",
+                    )
+            else:
+                with open(file_path, "rb") as f:
+                    await update.message.reply_video(
+                        video=f,
+                        caption=f"🎬 {title[:60]}\n📦 {file_size:.1f} MB\n⚡ {quality}p\n📱 {platform}\n\n{SIGNATURE}",
+                        supports_streaming=True,
+                    )
+
+            print("✅ FILE SENT SUCCESS")
+
+        except Exception as send_error:
+            print("SEND ERROR:")
+            print(repr(send_error))
+            raise
 
         os.remove(file_path)
         increase_downloads(user.id)
@@ -187,14 +196,22 @@ async def handle_message(update, context):
         )
 
     except Exception as e:
-        error_msg = str(e)
-        await msg.edit_text(f"❌ حدث خطأ أثناء التحميل\n💡 جرب رابط آخر")
+        print("=" * 60)
+        print("FATAL ERROR")
+        print(repr(e))
+        traceback.print_exc()
+        print("=" * 60)
+
+        await msg.edit_text(
+            f"❌ حدث خطأ أثناء التحميل\n\n{str(e)[:150]}"
+        )
+
         await send_admin_error(
             context,
             user_id,
             url,
             platform,
-            error_msg,
+            str(e),
             "EXCEPTION",
             traceback.format_exc()
     )
