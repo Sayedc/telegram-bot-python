@@ -1,19 +1,26 @@
 FROM python:3.10-slim
 
-# تثبيت FFmpeg و Git
-RUN apt-get update && apt-get install -y ffmpeg git && rm -rf /var/lib/apt/lists/*
+# تثبيت الأدوات المطلوبة
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    git \
+    curl \
+    wget \
+    nodejs \
+    npm \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# نسخ ملف المتطلبات أولاً (لتسريع عملية البناء)
 COPY requirements.txt .
 
-# تحديث pip وتثبيت المتطلبات
 RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# نسخ باقي ملفات المشروع
+# تثبيت أحدث نسخة Nightly من yt-dlp
+RUN pip uninstall -y yt-dlp || true
+RUN pip install --pre -U yt-dlp
+
 COPY . .
 
-# تشغيل البوت
 CMD ["python", "main.py"]
