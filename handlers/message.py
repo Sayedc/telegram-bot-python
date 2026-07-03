@@ -26,48 +26,16 @@ def platform_icon(platform: str):
     return "▶️ 𝗠𝗲𝗱𝗶𝗮"
 
 
-def progress_bar(step: int):
-    bars = [
-        "⬛⬜⬜⬜⬜⬜",
-        "⬛⬛⬜⬜⬜⬜",
-        "⬛⬛⬛⬜⬜⬜",
-        "⬛⬛⬛⬛⬜⬜",
-        "⬛⬛⬛⬛⬛⬜",
-        "⬛⬛⬛⬛⬛⬛",
-    ]
-    return bars[min(step, len(bars) - 1)]
-
-
-# ===== شاشة التحميل المتحركة =====
-LOADING_STEPS = [
-    ("🔍 جاري التحضير", 0),
-    ("🌐 جاري الاتصال", 1),
-    ("📥 جاري التحميل", 2),
-    ("⚙️ جاري المعالجة", 3),
-    ("✨ إنهاء العملية", 4),
-]
-
-
-async def animate_loading(message, platform):
-    i = 0
-    while True:
-        step = LOADING_STEPS[i % len(LOADING_STEPS)]
-
-        text = (
-            "━━━━━━━━━━━━━━━━━━\n\n"
-            f"{platform_icon(platform)}\n\n"
-            f"{step[0]}\n\n"
-            f"{progress_bar(step[1])}\n\n"
-            f"{SIGNATURE}"
-        )
-
-        try:
-            await message.edit_text(text)
-        except:
-            pass
-
-        i += 1
-        await asyncio.sleep(1.5)
+# ===== رسالة الترحيب =====
+async def start(update, context):
+    await update.message.reply_text(
+        "━━━━━━━━━━━━━━━━━━\n\n"
+        "🤖 𝗔𝗹𝗵𝗮𝘄𝘆 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗲𝗿\n\n"
+        "⚡ Fast • Clean • Unlimited\n\n"
+        "━━━━━━━━━━━━━━━━━━\n\n"
+        "📎 أرسل أي رابط...\n\n"
+        "━━━━━━━━━━━━━━━━━━"
+    )
 
 
 async def send_admin_error(context, user_id, url, platform, error_msg, error_code=None, tb=None):
@@ -155,16 +123,39 @@ async def handle_message(update, context):
     quality = context.user_data.get("quality", "720")
     audio = context.user_data.get("audio", False)
 
-    # ===== كارت البداية =====
+    # ===== أول رد فوري =====
     msg = await update.message.reply_text(
         "━━━━━━━━━━━━━━━━━━\n\n"
         f"{platform_icon(platform)}\n\n"
-        "🔍 جاري التحضير...\n\n"
-        "⬛⬜⬜⬜⬜⬜\n\n"
-        f"{SIGNATURE}"
+        "🔍 تحليل الرابط...\n\n"
+        "▰▱▱▱▱\n\n"
+        "━━━━━━━━━━━━━━━━━━"
     )
 
-    task = asyncio.create_task(animate_loading(msg, platform))
+    # ===== أنيميشن التحميل =====
+    steps = [
+        ("🔍 تحليل الرابط...", "▰▱▱▱▱"),
+        ("🌐 الاتصال بالخادم...", "▰▰▱▱▱"),
+        ("📥 تنزيل الفيديو...", "▰▰▰▱▱"),
+        ("⚙️ معالجة الفيديو...", "▰▰▰▰▱"),
+        ("✨ إنهاء العملية...", "▰▰▰▰▰"),
+    ]
+
+    async def animate_loading():
+        for i, step in enumerate(steps):
+            try:
+                await msg.edit_text(
+                    "━━━━━━━━━━━━━━━━━━\n\n"
+                    f"{platform_icon(platform)}\n\n"
+                    f"{step[0]}\n\n"
+                    f"{step[1]}\n\n"
+                    "━━━━━━━━━━━━━━━━━━"
+                )
+            except:
+                pass
+            await asyncio.sleep(1.2)
+
+    task = asyncio.create_task(animate_loading())
 
     start_time = datetime.now()
 
@@ -185,9 +176,10 @@ async def handle_message(update, context):
 
             await msg.edit_text(
                 "━━━━━━━━━━━━━━━━━━\n\n"
-                "⚠️ حدث خطأ أثناء التحميل\n"
-                "حاول مرة أخرى\n\n"
-                f"{SIGNATURE}"
+                "⚠️ تعذر إكمال العملية\n\n"
+                "📹 الجودة غير متوفرة أو الرابط غير صالح\n\n"
+                "💡 جرّب رابط آخر\n\n"
+                "━━━━━━━━━━━━━━━━━━"
             )
 
             await send_admin_error(
@@ -214,9 +206,10 @@ async def handle_message(update, context):
         if not file_path or not os.path.exists(file_path):
             await msg.edit_text(
                 "━━━━━━━━━━━━━━━━━━\n\n"
-                "⚠️ حدث خطأ أثناء التحميل\n"
-                "حاول مرة أخرى\n\n"
-                f"{SIGNATURE}"
+                "⚠️ تعذر إكمال العملية\n\n"
+                "📹 الجودة غير متوفرة أو الرابط غير صالح\n\n"
+                "💡 جرّب رابط آخر\n\n"
+                "━━━━━━━━━━━━━━━━━━"
             )
             
             await send_admin_error(
@@ -231,43 +224,25 @@ async def handle_message(update, context):
 
         file_size = os.path.getsize(file_path) / 1048576
 
-        # ===== رسالة إنهاء العملية =====
-        size_mb = round(file_size, 2)
-        await msg.edit_text(
-            "━━━━━━━━━━━━━━━━━━\n\n"
-            "✨ إنهاء العملية\n\n"
-            f"📦 {size_mb} MB\n"
-            f"🎞️ {quality}P\n\n"
-            f"{SIGNATURE}"
-        )
+        # ===== حذف رسالة التحميل وإرسال الفيديو مباشرة =====
+        await msg.delete()
 
-        try:
-            if audio:
-                with open(file_path, "rb") as f:
-                    await update.message.reply_audio(
-                        audio=f,
-                        title=title[:50],
-                        caption=f"{get_random_success()}\n\n{SIGNATURE}",
-                    )
-            else:
-                with open(file_path, "rb") as f:
-                    await update.message.reply_video(
-                        video=f,
-                        caption=f"🎬 {title[:60]}\n📦 {file_size:.1f} MB\n⚡ {quality}p\n📱 {platform}\n\n{SIGNATURE}",
-                        supports_streaming=True,
-                    )
+        if audio:
+            with open(file_path, "rb") as f:
+                await update.message.reply_audio(
+                    audio=f,
+                    title=title[:50],
+                    caption=f"{get_random_success()}\n\n{SIGNATURE}",
+                )
+        else:
+            with open(file_path, "rb") as f:
+                await update.message.reply_video(
+                    video=f,
+                    caption=f"🎬 {title[:60]}\n📦 {file_size:.1f} MB\n⚡ {quality}p\n📱 {platform}\n\n{SIGNATURE}",
+                    supports_streaming=True,
+                )
 
-            try:
-                await msg.delete()
-            except:
-                pass
-
-            print("✅ FILE SENT SUCCESS")
-
-        except Exception as send_error:
-            print("SEND ERROR:")
-            print(repr(send_error))
-            raise
+        print("✅ FILE SENT SUCCESS")
 
         os.remove(file_path)
         increase_downloads(user.id)
@@ -278,9 +253,10 @@ async def handle_message(update, context):
     except asyncio.TimeoutError:
         await msg.edit_text(
             "━━━━━━━━━━━━━━━━━━\n\n"
-            "⚠️ حدث خطأ أثناء التحميل\n"
-            "حاول مرة أخرى\n\n"
-            f"{SIGNATURE}"
+            "⚠️ تعذر إكمال العملية\n\n"
+            "📹 الجودة غير متوفرة أو الرابط غير صالح\n\n"
+            "💡 جرّب رابط آخر\n\n"
+            "━━━━━━━━━━━━━━━━━━"
         )
         await send_admin_error(
             context,
@@ -301,9 +277,10 @@ async def handle_message(update, context):
 
         await msg.edit_text(
             "━━━━━━━━━━━━━━━━━━\n\n"
-            "⚠️ حدث خطأ أثناء التحميل\n"
-            "حاول مرة أخرى\n\n"
-            f"{SIGNATURE}"
+            "⚠️ تعذر إكمال العملية\n\n"
+            "📹 الجودة غير متوفرة أو الرابط غير صالح\n\n"
+            "💡 جرّب رابط آخر\n\n"
+            "━━━━━━━━━━━━━━━━━━"
         )
 
         await send_admin_error(
@@ -314,4 +291,4 @@ async def handle_message(update, context):
             str(e),
             "EXCEPTION",
             traceback.format_exc()
-)
+    )
