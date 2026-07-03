@@ -98,32 +98,20 @@ async def handle_message(update, context):
     audio = context.user_data.get("audio", False)
 
     # ===== شاشة التحميل الفاخرة =====
-    msg = await update.message.reply_text("🚀")
+    msg = await update.message.reply_text("⏳")
 
-    loading = LoadingMessage(
-        msg,
-        platform=platform
-    )
-
-    loading_task = asyncio.create_task(
-        loading.animate()
-    )
+    loading = LoadingMessage(msg, platform)
+    loading_task = asyncio.create_task(loading.animate())
 
     start_time = datetime.now()
 
     try:
-        result = await downloader.download(
-            url,
-            quality,
-            audio,
-        )
-
-        loading.stop()
-
         try:
-            await loading_task
-        except:
-            pass
+            result = await downloader.download(url, quality, audio)
+        finally:
+            loading.stop()
+            await asyncio.sleep(0.2)
+            loading_task.cancel()
 
         print("=" * 60)
         print("DOWNLOAD RESULT:")
@@ -172,13 +160,6 @@ async def handle_message(update, context):
                 "FILE_NOT_FOUND"
             )
             return
-
-        # إيقاف الأنيميشن قبل إرسال الملف
-        loading.stop()
-        try:
-            await loading_task
-        except:
-            pass
 
         file_size = os.path.getsize(file_path) / 1048576
 
