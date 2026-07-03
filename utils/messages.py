@@ -163,4 +163,9 @@ STATUS_MESSAGES = {
 def get_status_message(stage: str):
     return random.choice(
         STATUS_MESSAGES.get(stage, ["⏳ يرجى الانتظار..."])
-)
+    )
+
+
+def get_response(lst, name=""):
+    text = random.choice(lst)
+    return text.replace("{name}", name)
