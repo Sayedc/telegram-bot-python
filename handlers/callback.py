@@ -8,7 +8,7 @@ import shutil
 from keyboards.main_keyboard import (
     main_keyboard,
     admin_keyboard,
-   admin_panel,
+    admin_panel,
     quality_keyboard,
     settings_keyboard,
     confirm_keyboard,
@@ -211,7 +211,14 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for i, (uid, info) in enumerate(sorted_users, 1):
             medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}️⃣"
             status = "🚫" if info.get("blocked") else "✅"
-            text += f"{medal} `{uid}` - {info.get('name', 'Unknown')} {status}\n   📥 {info.get('downloads', 0)}\n"
+            name = info.get("name") or "No Username"
+
+            text += (
+                f"{medal} {name}\n"
+                f"🆔 `{uid}`\n"
+                f"📥 {info.get('downloads',0)} تحميل\n"
+                f"{status}\n\n"
+            )
 
         text += f"\n✨ {SIGNATURE} ✨"
         await query.edit_message_text(text, parse_mode="Markdown")
@@ -281,12 +288,18 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         for file in os.listdir("downloads"):
             path = os.path.join("downloads", file)
-            if os.path.isfile(path):
-                os.remove(path)
+
+            try:
+                if os.path.isfile(path):
+                    os.remove(path)
+                else:
+                    shutil.rmtree(path)
                 count += 1
+            except Exception:
+                pass
 
         await query.edit_message_text(
-            f"🗑 تم حذف {count} ملف."
+            f"🗑️ تم حذف {count} ملف من الكاش."
         )
 
     elif data == "admin_delete_all":
