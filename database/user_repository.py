@@ -129,25 +129,24 @@ def is_blocked(user_id):
 
 
 # =========================
-# DELETE USER DATA (NEW)
+# DELETE USER DATA (UPDATED)
 # =========================
 def delete_user_data(user_id):
     """حذف بيانات مستخدم معين"""
     data = load_data()
     uid = str(user_id)
-    
+
     if uid in data["users"]:
-        downloads = data["users"][uid].get("downloads", 0)
         del data["users"][uid]
-        data["total"] = max(0, data["total"] - downloads)
+        data["total"] = len(data["users"])
         save_data(data)
         return True
-    
+
     return False
 
 
 # =========================
-# USER STATS (NEW)
+# USER STATS
 # =========================
 def get_user_stats(user_id):
     """جلب إحصائيات مستخدم معين"""
