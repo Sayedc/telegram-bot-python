@@ -5,11 +5,12 @@ from datetime import datetime
 
 from telegram import Update
 from telegram.ext import ContextTypes
+from telegram.helpers import escape_markdown
 
 from keyboards.main_keyboard import (
     main_keyboard,
     admin_keyboard,
-   admin_panel,
+    admin_panel,
     quality_keyboard,
     settings_keyboard,
     confirm_keyboard,
@@ -139,7 +140,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 ✨ {SIGNATURE} ✨
 """
-        await query.edit_message_text(text, parse_mode="Markdown")
+        await query.edit_message_text(text)
 
     # =========================
     # تأكيدات
@@ -147,8 +148,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "confirm_yes":
         if delete_user_data(user_id):
             await query.edit_message_text(
-                f"🗑️ *تم حذف بياناتك بنجاح*\n\n✨ {SIGNATURE} ✨",
-                parse_mode="Markdown",
+                f"🗑️ تم حذف بياناتك بنجاح\n\n{SIGNATURE}"
             )
         else:
             await query.edit_message_text("❌ *لا توجد بيانات لك*", parse_mode="Markdown")
@@ -237,7 +237,10 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for i, (uid, info) in enumerate(sorted_users, 1):
             medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}️⃣"
             status = "🚫" if info.get("blocked") else "✅"
-            name = info.get("name") or "No Username"
+            name = escape_markdown(
+                str(info.get("name") or "No Username"),
+                version=2
+            )
 
             text += (
                 f"{medal} {name}\n"
@@ -247,7 +250,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
         text += f"\n✨ {SIGNATURE} ✨"
-        await query.edit_message_text(text, parse_mode="Markdown")
+        await query.edit_message_text(text, parse_mode="MarkdownV2")
 
     elif data == "admin_broadcast":
         if not is_admin(user_id):
