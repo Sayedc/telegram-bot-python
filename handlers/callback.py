@@ -1,16 +1,19 @@
 # handlers/callback.py
 from telegram import Update
 from telegram.ext import ContextTypes
+from datetime import datetime
+import os
+import shutil
 
 from keyboards.main_keyboard import (
     main_keyboard,
     admin_keyboard,
-    admin_panel,
+   admin_panel,
     quality_keyboard,
     settings_keyboard,
     confirm_keyboard,
 )
-from database.user_repository import get_user_stats, get_all_users, delete_user_data
+from database.user_repository import get_user_stats, get_all_users, delete_user_data, load_data, save_data
 from config import ADMIN_IDS, SIGNATURE
 from core import downloader, metrics, get_uptime
 from utils.constants import SUCCESS_TEXTS, ERROR_TEXTS
@@ -274,48 +277,33 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_admin(user_id):
             return
 
-        import os
-        from config import DOWNLOADS_PATH
-
         count = 0
-        for f in os.listdir(DOWNLOADS_PATH):
-            try:
-                os.remove(os.path.join(DOWNLOADS_PATH, f))
+
+        for file in os.listdir("downloads"):
+            path = os.path.join("downloads", file)
+            if os.path.isfile(path):
+                os.remove(path)
                 count += 1
-            except:
-                pass
 
         await query.edit_message_text(
-            f"🗑️ *تم حذف {count} ملف مؤقت*\n\n✨ {SIGNATURE} ✨",
-            parse_mode="Markdown",
+            f"🗑 تم حذف {count} ملف."
         )
 
     elif data == "admin_delete_all":
         if not is_admin(user_id):
             return
 
-        from database.user_repository import save_data, load_data
-        from datetime import datetime
+        data_db = load_data()
+        admin = data_db["users"].get(str(user_id))
 
-        data = load_data()
-        admin_name = data["users"].get(str(user_id), {}).get("name", "Admin")
-        data["users"] = {
-            str(user_id): {
-                "name": admin_name,
-                "downloads": 0,
-                "blocked": False,
-                "joined": str(datetime.now()),
-                "last_seen": str(datetime.now()),
-            }
+        data_db["users"] = {
+            str(user_id): admin
         }
-        data["total"] = 1
-        data["daily"] = 0
-        data["last_date"] = str(datetime.now().date())
-        save_data(data)
+        data_db["total"] = 1
+        save_data(data_db)
 
         await query.edit_message_text(
-            f"🗑️ *تم حذف جميع المستخدمين (عدا الأدمن)*\n\n✨ {SIGNATURE} ✨",
-            parse_mode="Markdown",
+            "✅ تم حذف جميع المستخدمين."
         )
 
     elif data == "admin_uptime":
@@ -323,29 +311,23 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         await query.edit_message_text(
-            f"⏱️ *وقت تشغيل البوت*\n━━━━━━━━━━━━━━━━━━━\n{get_uptime()}\n━━━━━━━━━━━━━━━━━━━\n✨ {SIGNATURE} ✨",
-            parse_mode="Markdown",
+            f"⏱ وقت التشغيل\n\n{get_uptime()}"
         )
 
     elif data == "admin_backup":
         if not is_admin(user_id):
             return
 
-        import shutil
-        from database.user_repository import DB_FILE
-        import os
-
-        backup_file = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        shutil.copy(DB_FILE, backup_file)
+        backup = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        shutil.copy("database.json", backup)
 
         await query.message.reply_document(
-            document=open(backup_file, "rb"),
-            caption=f"📦 *نسخة احتياطية*\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n✨ {SIGNATURE} ✨",
-            parse_mode="Markdown",
+            open(backup, "rb"),
+            caption="📦 Database Backup"
         )
-        os.remove(backup_file)
 
-        await query.edit_message_text("📤 *تم إرسال النسخة الاحتياطية*", parse_mode="Markdown")
+        os.remove(backup)
+        await query.edit_message_text("✅ تم إرسال النسخة الاحتياطية")
 
     elif data == "admin_metrics":
         if not is_admin(user_id):
@@ -355,38 +337,56 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         stats = downloader.get_stats()
 
         text = f"""
-📊 *مقاييس الأداء* 📊
-━━━━━━━━━━━━━━━━━━━
-⏱️ متوسط زمن الاستجابة: `{summary.get('avg_response', 0)}` ثانية
-⏱️ متوسط زمن التحميل: `{summary.get('avg_download', 0)}` ثانية
-📈 نسبة النجاح: `{summary.get('success_rate', 0)}%`
-🎯 أكثر منصة استخداماً: `{summary.get('top_platform', 'None')}`
+📊 مقاييس الأداء
 
-📥 *نظام التحميل:*
-⏳ طلبات منتظرة: `{stats.get('queue_size', 0)}`
-⚡ تحميلات نشطة: `{stats.get('active', 0)}`
-✅ نجح: `{stats.get('success', 0)}`
-❌ فشل: `{stats.get('failed', 0)}`
+━━━━━━━━━━━━━━
 
-✨ {SIGNATURE} ✨
+⚡ متوسط الاستجابة:
+{summary['avg_response']} ثانية
+
+📥 متوسط التحميل:
+{summary['avg_download']} ثانية
+
+✅ نسبة النجاح:
+{summary['success_rate']}%
+
+🏆 أكثر منصة:
+{summary['top_platform']}
+
+━━━━━━━━━━━━━━
+
+📦 Queue:
+{stats['queue_size']}
+
+🚀 Active:
+{stats['active']}
+
+✅ Success:
+{stats['success']}
+
+❌ Failed:
+{stats['failed']}
+
+━━━━━━━━━━━━━━
+
+{SIGNATURE}
 """
-        await query.edit_message_text(text, parse_mode="Markdown")
+
+        await query.edit_message_text(text)
 
     elif data == "admin_logs":
         if not is_admin(user_id):
             return
 
-        # عرض آخر 10 أخطاء من الملف
-        try:
-            with open("logs/errors.log", "r") as f:
-                lines = f.readlines()[-10:]
-                logs = "".join(lines) if lines else "لا توجد أخطاء"
-        except:
-            logs = "لا يوجد ملف سجل"
+        if not os.path.exists("logs/errors.log"):
+            await query.edit_message_text("لا يوجد سجل أخطاء.")
+            return
+
+        with open("logs/errors.log", "r", encoding="utf8") as f:
+            logs = f.readlines()[-10:]
 
         await query.edit_message_text(
-            f"📋 *سجل الأخطاء (آخر 10)*\n━━━━━━━━━━━━━━━━━━━\n```\n{logs}\n```\n\n✨ {SIGNATURE} ✨",
-            parse_mode="Markdown",
+            "آخر الأخطاء:\n\n" + "".join(logs)
         )
 
     elif data == "admin_restart":
