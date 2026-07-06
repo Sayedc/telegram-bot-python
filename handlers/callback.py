@@ -45,15 +45,20 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # الأزرار الأساسية
     # =========================
     if data == "help_video":
+        context.user_data["audio"] = False
+
         await query.edit_message_text(
-            "🎬 *تحميل فيديو*\n\n📤 أرسل رابط الفيديو مباشرة وسأقوم بتحميله بأعلى جودة\n\n✅ المنصات المدعومة:\n• TikTok (بدون علامة مائية)\n• YouTube\n• Instagram\n• Facebook\n• Twitter\n• وأي موقع تاني",
-            parse_mode="Markdown",
+            "🎬 تم تفعيل وضع الفيديو.\n\n"
+            "📥 أرسل أي رابط الآن وسيتم تحميل الفيديو.",
         )
 
     elif data == "help_audio":
+        context.user_data["audio"] = True
+
         await query.edit_message_text(
-            "🎵 *استخراج الصوت*\n\n📤 استخدم الأمر `/audio` ثم أرسل رابط الفيديو\n\n🎧 سأرسل لك ملف MP3 بجودة عالية",
-            parse_mode="Markdown",
+            "🎵 تم تفعيل وضع استخراج الصوت.\n\n"
+            "📥 أرسل أي رابط الآن وسيتم تحميله كملف MP3.\n\n"
+            "🔄 سيظل الوضع مفعلًا حتى تختار تحميل الفيديو.",
         )
 
     elif data == "quality_menu":
@@ -258,7 +263,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         text += SIGNATURE
 
-        await query.edit_message_text(text)  # ✅ من غير parse_mode
+        await query.edit_message_text(text)
 
     elif data == "admin_broadcast":
         if not is_admin(user_id):
