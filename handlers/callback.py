@@ -223,6 +223,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         users = get_all_users()
+
         sorted_users = sorted(
             users.items(),
             key=lambda x: x[1].get("downloads", 0),
@@ -230,27 +231,34 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )[:10]
 
         if not sorted_users:
-            await query.edit_message_text("🏆 *لا يوجد مستخدمين بعد*", parse_mode="Markdown")
+            await query.edit_message_text("🏆 لا يوجد مستخدمون بعد.")
             return
 
-        text = "🏆 *ترتيب المستخدمين الأكثر نشاطاً* 🏆\n━━━━━━━━━━━━━━━━━━━\n"
+        text = "🏆 ترتيب المستخدمين الأكثر نشاطاً\n\n"
+
         for i, (uid, info) in enumerate(sorted_users, 1):
-            medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}️⃣"
+            if i == 1:
+                medal = "🥇"
+            elif i == 2:
+                medal = "🥈"
+            elif i == 3:
+                medal = "🥉"
+            else:
+                medal = f"{i}."
+
             status = "🚫" if info.get("blocked") else "✅"
-            name = escape_markdown(
-                str(info.get("name") or "No Username"),
-                version=2
-            )
+            name = str(info.get("name", "Unknown"))
 
             text += (
                 f"{medal} {name}\n"
-                f"🆔 `{uid}`\n"
-                f"📥 {info.get('downloads',0)} تحميل\n"
-                f"{status}\n\n"
+                f"ID: {uid}\n"
+                f"التحميلات: {info.get('downloads', 0)}\n"
+                f"الحالة: {status}\n\n"
             )
 
-        text += f"\n✨ {SIGNATURE} ✨"
-        await query.edit_message_text(text, parse_mode="MarkdownV2")
+        text += SIGNATURE
+
+        await query.edit_message_text(text)  # ✅ من غير parse_mode
 
     elif data == "admin_broadcast":
         if not is_admin(user_id):
