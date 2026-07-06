@@ -1,4 +1,4 @@
-# downloader.py - النسخة النهائية بدون js_runtimes
+# downloader.py - النسخة النهائية مع js_runtimes
 import os
 import asyncio
 import yt_dlp
@@ -232,9 +232,13 @@ class Downloader:
                 "Accept-Language": "en-US,en;q=0.9",
             },
 
+            "js_runtimes": {
+                "node": "/usr/bin/node"
+            },
+
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["android", "web", "tv"],
+                    "player_client": ["android", "tv"],
                 }
             },
 
