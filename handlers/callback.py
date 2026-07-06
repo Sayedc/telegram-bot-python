@@ -169,28 +169,48 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_admin(user_id):
             return
 
-        users_data = get_all_users()
-        stats = downloader.get_stats()
-        blocked = sum(1 for u in users_data.values() if u.get("blocked", False))
+        from database.user_repository import get_admin_stats
+
+        stats = get_admin_stats()
+        d_stats = downloader.get_stats()
 
         text = f"""
-👑 *إحصائيات البوت* 👑
-━━━━━━━━━━━━━━━━━━━
-👥 المستخدمين: `{len(users_data)}`
-🚫 محظورين: `{blocked}`
-📥 إجمالي التحميلات: `{stats.get('success', 0)}`
+👑 إحصائيات البوت
 
-📊 *نظام التحميل:*
-⏳ قائمة الانتظار: `{stats.get('queue_size', 0)}`
-⚡ نشط حالياً: `{stats.get('active', 0)}`
-✅ نجح: `{stats.get('success', 0)}`
-❌ فشل: `{stats.get('failed', 0)}`
+━━━━━━━━━━━━━━━━━━
 
-⏱️ وقت التشغيل: `{get_uptime()}`
+👥 المستخدمين:
+{stats["total_users"]}
 
-✨ {SIGNATURE} ✨
+🚫 المحظورين:
+{stats["blocked_users"]}
+
+📥 إجمالي التحميلات:
+{stats["total_downloads"]}
+
+━━━━━━━━━━━━━━━━━━
+
+⚡ التحميلات النشطة:
+{d_stats["active"]}
+
+📋 قائمة الانتظار:
+{d_stats["queue_size"]}
+
+✅ الناجحة:
+{d_stats["success"]}
+
+❌ الفاشلة:
+{d_stats["failed"]}
+
+━━━━━━━━━━━━━━━━━━
+
+⏱️ وقت التشغيل:
+{get_uptime()}
+
+{SIGNATURE}
 """
-        await query.edit_message_text(text, parse_mode="Markdown")
+
+        await query.edit_message_text(text)
 
     elif data == "admin_top":
         if not is_admin(user_id):
