@@ -197,8 +197,8 @@ async def handle_message(update, context):
         return
 
     platform = get_platform(url)
+    audio_mode = context.user_data.get("audio", False)
     quality = context.user_data.get("quality", "720")
-    audio = context.user_data.get("audio", False)
 
     # ===== أول رد فوري =====
     msg = await update.message.reply_text(
@@ -238,7 +238,11 @@ async def handle_message(update, context):
 
     try:
         try:
-            result = await downloader.download(url, quality, audio)
+            result = await downloader.download(
+                url=url,
+                quality=quality,
+                audio=audio_mode
+            )
         finally:
             task.cancel()
 
@@ -300,7 +304,7 @@ async def handle_message(update, context):
         # ===== حذف رسالة التحميل وإرسال الفيديو مباشرة =====
         await msg.delete()
 
-        if audio:
+        if audio_mode:
             with open(file_path, "rb") as f:
                 await update.message.reply_audio(
                     audio=f,
