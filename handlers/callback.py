@@ -214,8 +214,15 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(text, parse_mode="Markdown")
 
     elif data == "admin_broadcast":
+        if not is_admin(user_id):
+            return
+
+        context.user_data["admin_state"] = "broadcast"
+
         await query.edit_message_text(
-            "📢 *إرسال إعلان*\n━━━━━━━━━━━━━━━━━━━\nاستخدم الأمر:\n`/broadcast <الرسالة>`\n\nمثال:\n`/broadcast مرحباً بالجميع`",
+            "📢 *إرسال إعلان*\n\n"
+            "✍️ أرسل الآن الرسالة التي تريد إرسالها لجميع المستخدمين.\n\n"
+            "❌ اكتب (إلغاء) للإلغاء.",
             parse_mode="Markdown",
         )
 
@@ -223,28 +230,43 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_admin(user_id):
             return
 
+        from database.user_repository import get_all_users
+        import os
+
         users = get_all_users()
-        text = "👥 *قائمة المستخدمين*\n━━━━━━━━━━━━━━━━━━━\n"
 
-        for uid, info in list(users.items())[:20]:
-            status = "🚫" if info.get("blocked") else "✅"
-            text += f"• `{uid}` - {info.get('name', 'Unknown')} {status}\n   📥 {info.get('downloads', 0)}\n"
+        with open("users.txt", "w", encoding="utf-8") as f:
+            for uid, info in users.items():
+                f.write(
+                    f"{uid} | {info.get('name')} | {info.get('downloads', 0)}\n"
+                )
 
-        if len(users) > 20:
-            text += f"\n... و {len(users) - 20} مستخدم آخر"
+        await query.message.reply_document(
+            document=open("users.txt", "rb"),
+            caption="👥 قائمة المستخدمين"
+        )
 
-        text += f"\n\n✨ {SIGNATURE} ✨"
-        await query.edit_message_text(text, parse_mode="Markdown")
+        os.remove("users.txt")
 
     elif data == "admin_block":
+        if not is_admin(user_id):
+            return
+
+        context.user_data["admin_state"] = "block"
+
         await query.edit_message_text(
-            "🚫 *حظر مستخدم*\n━━━━━━━━━━━━━━━━━━━\nاستخدم الأمر:\n`/block <user_id>`\n\nللعثور على user_id، استخدم أمر `/users`",
+            "🚫 أرسل ID المستخدم الذي تريد حظره.",
             parse_mode="Markdown",
         )
 
     elif data == "admin_unblock":
+        if not is_admin(user_id):
+            return
+
+        context.user_data["admin_state"] = "unblock"
+
         await query.edit_message_text(
-            "🔓 *إلغاء حظر مستخدم*\n━━━━━━━━━━━━━━━━━━━\nاستخدم الأمر:\n`/unblock <user_id>`\n\nللعثور على user_id، استخدم أمر `/users`",
+            "🔓 أرسل ID المستخدم الذي تريد فك حظره.",
             parse_mode="Markdown",
         )
 
@@ -273,6 +295,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         from database.user_repository import save_data, load_data
+        from datetime import datetime
 
         data = load_data()
         admin_name = data["users"].get(str(user_id), {}).get("name", "Admin")
@@ -310,6 +333,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         import shutil
         from database.user_repository import DB_FILE
+        import os
 
         backup_file = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         shutil.copy(DB_FILE, backup_file)
