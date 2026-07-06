@@ -14,7 +14,8 @@ from telegram.ext import (
 # ==========================
 from handlers.start import start
 from handlers.message import handle_message
-from handlers.callback import callback_handler  # 👈 لازم تكون دي موجودة في callback.py
+from handlers.callback import callback_handler
+from handlers.errors import error_handler  # ✅ تمت الإضافة
 
 from handlers.admin import (
     admin_stats,
@@ -61,11 +62,9 @@ async def callback(update, context):
 
     data = q.data
 
-    # 🎯 forward to callback_handler (لو انت عامل ملف منفصل)
     if callback_handler:
         return await callback_handler(update, context)
 
-    # fallback
     await q.edit_message_text("⚠️ Invalid action")
 
 
@@ -100,6 +99,9 @@ def main():
     app.add_handler(CommandHandler("block", block_user_cmd))
     app.add_handler(CommandHandler("unblock", unblock_user_cmd))
     app.add_handler(CommandHandler("metrics", admin_metrics_cmd))
+
+    # ===== ERROR HANDLER =====
+    app.add_error_handler(error_handler)  # ✅ تمت الإضافة
 
     print("=" * 50)
     print(f"🤖 BOT: {BOT_USERNAME}")
