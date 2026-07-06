@@ -1,19 +1,27 @@
 # handlers/callback.py
-from telegram import Update
-from telegram.ext import ContextTypes
-from datetime import datetime
 import os
 import shutil
+from datetime import datetime
+
+from telegram import Update
+from telegram.ext import ContextTypes
 
 from keyboards.main_keyboard import (
     main_keyboard,
     admin_keyboard,
-    admin_panel,
+   admin_panel,
     quality_keyboard,
     settings_keyboard,
     confirm_keyboard,
 )
-from database.user_repository import get_user_stats, get_all_users, delete_user_data, load_data, save_data
+from database.user_repository import (
+    get_user_stats,
+    get_all_users,
+    delete_user_data,
+    load_data,
+    save_data,
+    get_admin_stats,
+)
 from config import ADMIN_IDS, SIGNATURE
 from core import downloader, metrics, get_uptime
 from utils.constants import SUCCESS_TEXTS, ERROR_TEXTS
@@ -169,8 +177,6 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_admin(user_id):
             return
 
-        from database.user_repository import get_admin_stats
-
         stats = get_admin_stats()
         d_stats = downloader.get_stats()
 
@@ -259,9 +265,6 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "admin_users":
         if not is_admin(user_id):
             return
-
-        from database.user_repository import get_all_users
-        import os
 
         users = get_all_users()
 
