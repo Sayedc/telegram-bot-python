@@ -122,6 +122,76 @@ async def handle_message(update, context):
 
     url = extract_link(update.message.text)
 
+    # ==========================
+    # ADMIN STATES
+    # ==========================
+
+    state = context.user_data.get("admin_state")
+
+    if state == "broadcast":
+
+        if update.message.text.lower() == "إلغاء":
+            context.user_data.pop("admin_state", None)
+            await update.message.reply_text("❌ تم إلغاء العملية.")
+            return
+
+        from database.user_repository import get_all_users
+
+        users = get_all_users()
+
+        sent = 0
+
+        for uid in users:
+
+            try:
+                await context.bot.send_message(
+                    int(uid),
+                    update.message.text
+                )
+                sent += 1
+
+            except:
+                pass
+
+        context.user_data.pop("admin_state", None)
+
+        await update.message.reply_text(
+            f"✅ تم إرسال الإعلان إلى {sent} مستخدم."
+        )
+
+        return
+
+
+    if state == "block":
+
+        from database.user_repository import block_user
+
+        block_user(update.message.text)
+
+        context.user_data.pop("admin_state", None)
+
+        await update.message.reply_text(
+            "✅ تم حظر المستخدم."
+        )
+
+        return
+
+
+    if state == "unblock":
+
+        from database.user_repository import unblock_user
+
+        unblock_user(update.message.text)
+
+        context.user_data.pop("admin_state", None)
+
+        await update.message.reply_text(
+            "✅ تم إلغاء الحظر."
+        )
+
+        return
+
+    # ===== باقي كود التحميل =====
     if not url:
         await update.message.reply_text("❌ أرسل رابط صحيح")
         return
@@ -290,4 +360,4 @@ async def handle_message(update, context):
             str(e),
             "EXCEPTION",
             traceback.format_exc()
-)
+    )
