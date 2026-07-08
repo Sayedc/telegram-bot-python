@@ -1,4 +1,4 @@
-# downloader.py - النسخة النهائية مع js_runtimes
+# downloader.py - النسخة النهائية
 import os
 import asyncio
 import yt_dlp
@@ -230,10 +230,6 @@ class Downloader:
             "http_headers": {
                 "User-Agent": "Mozilla/5.0",
                 "Accept-Language": "en-US,en;q=0.9",
-            },
-
-            "js_runtimes": {
-                "node": "/usr/bin/node"
             },
 
             "extractor_args": {
