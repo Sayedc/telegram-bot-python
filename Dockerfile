@@ -1,26 +1,33 @@
 FROM python:3.12-slim
 
-RUN apt-get update && apt-get install -y \
-ffmpeg \
-git \
-nodejs \
-npm \
-curl \
-wget \
-ca-certificates \
-&& rm -rf /var/lib/apt/lists/*
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    YTDLP_JS_RUNTIMES=node
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    git \
+    curl \
+    wget \
+    ca-certificates \
+    nodejs \
+    npm \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY requirements.txt .
 
-RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
-RUN pip install --upgrade yt-dlp
+RUN python -m pip install --upgrade pip setuptools wheel
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+RUN pip install --no-cache-dir --upgrade yt-dlp
 
 COPY . .
 
-ENV YTDLP_JS_RUNTIMES=node
-ENV PYTHONUNBUFFERED=1
+RUN mkdir -p /app/downloads
 
 CMD ["python", "main.py"]
