@@ -304,12 +304,11 @@ class Downloader:
         else:
             opts.update({
                 "format": (
-                    f"bestvideo*[height<={quality}]"
-                    f"+bestaudio/"
-                    f"best[height<={quality}]"
-                    f"/bestvideo+bestaudio"
-                    f"/best"
-                    f"/18"
+                    f"bestvideo*[height<={quality}]+bestaudio/"
+                    f"best[height<={quality}]/"
+                    f"bestvideo+bestaudio/"
+                    f"best/"
+                    f"18"
                 ),
                 "merge_output_format": "mp4",
             })
