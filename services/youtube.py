@@ -1,4 +1,4 @@
-# services/youtube.py - النسخة النهائية (مع هيدرز وكوكيز)
+# services/youtube.py - النسخة النهائية (مع حل مشكلة Requested format)
 
 import os
 import glob
@@ -22,7 +22,8 @@ def _get_cookie_file():
 
 
 def _video_format(quality: str):
-    return f"best[height<={quality}]"
+    # استخدام best كصيغة أساسية
+    return "best"
 
 
 def _audio_options():
@@ -66,12 +67,10 @@ def _base_options():
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "en-us,en;q=0.5",
-            "Sec-Fetch-Mode": "navigate",
         },
         "extractor_args": {
             "youtube": {
                 "player_client": ["android", "web"],
-                "skip": ["dash", "hls"],
             }
         },
     }
@@ -80,8 +79,6 @@ def _base_options():
     if cookie:
         opts["cookiefile"] = cookie
         print(f"🍪 Using cookies: {cookie}")
-    else:
-        print("⚠️ No cookies file found - might cause issues")
 
     return opts
 
@@ -131,16 +128,15 @@ async def download_youtube(
     else:
         opts.update(_video_options(quality))
 
-    # قائمة واسعة من الصيغ للمحاولة
+    # قائمة واسعة من الصيغ للمحاولة (مرتبة من الأفضل إلى الأقل)
     formats = [
-        opts["format"],
+        "best",
+        "bestvideo+bestaudio",
         "best[height<=720]",
         "best[height<=480]",
         "best[height<=360]",
-        "bestvideo+bestaudio",
-        "best",
-        "18",
-        "22",
+        "22",  # 720p
+        "18",  # 360p
     ]
 
     last_error = None
@@ -188,4 +184,4 @@ async def download_youtube(
     return {
         "success": False,
         "error": last_error or "Unknown YouTube error.",
-    }
+                    }
