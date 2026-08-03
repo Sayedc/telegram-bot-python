@@ -22,6 +22,7 @@ def _get_cookie_file():
 
 
 def _video_format(quality: str):
+    # استخدام صيغة أبسط وأكثر استقراراً
     return f"best[height<={quality}]"
 
 
@@ -118,9 +119,11 @@ async def download_youtube(
 
     last_error = None
 
+    # صيغ متعددة للمحاولة - مرتبة من الأفضل إلى الأقل
     formats = [
-        opts["format"],
+        opts["format"],  # best[height<=quality]
         "best[height<=720]",
+        "best[height<=480]",
         "best",
         "bestvideo+bestaudio",
     ]
