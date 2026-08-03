@@ -1,4 +1,4 @@
-# downloader.py - النسخة النهائية المعدلة بالكامل
+# downloader.py - النسخة النهائية مع التعديل المؤقت
 
 import os
 import asyncio
@@ -116,37 +116,16 @@ class Downloader:
             try:
                 with yt_dlp.YoutubeDL(current) as ydl:
                     print(f"⏳ Running yt-dlp with format: {fmt}")
-                    info = ydl.extract_info(url, download=True)
-                    print("✅ yt-dlp finished")
+                    info = ydl.extract_info(url, download=False)
 
-                    if not info:
-                        continue
-
-                    file_path = ydl.prepare_filename(info)
-
-                    if audio:
-                        file_path = (
-                            os.path.splitext(file_path)[0]
-                            + ".mp3"
-                        )
-
-                    file_path = self._find_file(file_path)
-
-                    if not file_path:
-                        continue
-
-                    print(f"📁 File path: {file_path}")
-                    print(f"📦 File size: {os.path.getsize(file_path)} bytes")
-                    print(f"📝 Title: {info.get('title', 'Unknown')}")
+                    print("=" * 80)
+                    print(info)
+                    print("=" * 80)
 
                     return {
                         "success": True,
-                        "file_path": file_path,
                         "title": info.get("title", "Unknown"),
                         "duration": info.get("duration", 0),
-                        "uploader": info.get("uploader", ""),
-                        "thumbnail": info.get("thumbnail", ""),
-                        "view_count": info.get("view_count", 0),
                     }
 
             except yt_dlp.utils.DownloadError as e:
