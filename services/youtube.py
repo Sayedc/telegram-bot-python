@@ -1,4 +1,4 @@
-# services/youtube.py - النسخة النهائية (مع تجربة صيغ متعددة)
+# services/youtube.py - النسخة النهائية (مع هيدرز وكوكيز)
 
 import os
 import glob
@@ -22,7 +22,6 @@ def _get_cookie_file():
 
 
 def _video_format(quality: str):
-    # صيغ متعددة للمحاولة
     return f"best[height<={quality}]"
 
 
@@ -63,12 +62,26 @@ def _base_options():
         "geo_bypass": True,
         "geo_bypass_country": "US",
         "concurrent_fragment_downloads": 4,
+        "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5",
+            "Sec-Fetch-Mode": "navigate",
+        },
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["android", "web"],
+                "skip": ["dash", "hls"],
+            }
+        },
     }
 
     cookie = _get_cookie_file()
     if cookie:
         opts["cookiefile"] = cookie
         print(f"🍪 Using cookies: {cookie}")
+    else:
+        print("⚠️ No cookies file found - might cause issues")
 
     return opts
 
@@ -120,23 +133,14 @@ async def download_youtube(
 
     # قائمة واسعة من الصيغ للمحاولة
     formats = [
-        opts["format"],  # best[height<=quality]
+        opts["format"],
         "best[height<=720]",
         "best[height<=480]",
         "best[height<=360]",
         "bestvideo+bestaudio",
-        "bestvideo[height<=720]+bestaudio",
-        "bestvideo[height<=480]+bestaudio",
-        "bestvideo[height<=360]+bestaudio",
         "best",
-        "18",  # 360p
-        "22",  # 720p
-        "137+140",  # 1080p + audio
-        "136+140",  # 720p + audio
-        "135+140",  # 480p + audio
-        "134+140",  # 360p + audio
-        "133+140",  # 240p + audio
-        "160+140",  # 144p + audio
+        "18",
+        "22",
     ]
 
     last_error = None
@@ -184,4 +188,4 @@ async def download_youtube(
     return {
         "success": False,
         "error": last_error or "Unknown YouTube error.",
-                }
+    }
