@@ -1,3 +1,5 @@
+# utils/messages.py - النسخة المعدلة
+
 import random
 
 # =========================
@@ -33,22 +35,22 @@ PROCESSING_MESSAGES = [
 ]
 
 # =========================
-# معلومات البوت والمطور (HTML)
+# معلومات البوت والمطور (بدون HTML)
 # =========================
 
-BOT_NAME = "𝗔𝗹𝗵𝗮𝘄𝘆 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗲𝗿"
+BOT_NAME = "Alhawy Downloader"
 BOT_USERNAME = "@TheAlhawy_Bot"
 DEVELOPER_USERNAME = "@ALHAWY1"
 
 
 def signature():
-    """توقيع البوت بصيغة HTML (قابل للضغط)"""
+    """توقيع البوت (نص عادي بدون HTML)"""
     return (
         "━━━━━━━━━━━━━━━━━━\n\n"
         "👨‍💻 المطور\n"
-        '<a href="https://t.me/ALHAWY1">@ALHAWY1</a>\n\n'
+        "@ALHAWY1\n\n"
         f"🤖 {BOT_NAME}\n"
-        f'<a href="https://t.me/TheAlhawy_Bot">@TheAlhawy_Bot</a>\n\n'
+        "@TheAlhawy_Bot\n\n"
         "━━━━━━━━━━━━━━━━━━"
     )
 
