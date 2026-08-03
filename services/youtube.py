@@ -1,4 +1,4 @@
-# services/youtube.py - النسخة النهائية (مع تحديث الفورمات)
+# services/youtube.py - النسخة النهائية (مع تجربة صيغ متعددة)
 
 import os
 import glob
@@ -22,7 +22,7 @@ def _get_cookie_file():
 
 
 def _video_format(quality: str):
-    # استخدام صيغة أبسط وأكثر استقراراً
+    # صيغ متعددة للمحاولة
     return f"best[height<={quality}]"
 
 
@@ -68,6 +68,7 @@ def _base_options():
     cookie = _get_cookie_file()
     if cookie:
         opts["cookiefile"] = cookie
+        print(f"🍪 Using cookies: {cookie}")
 
     return opts
 
@@ -117,16 +118,28 @@ async def download_youtube(
     else:
         opts.update(_video_options(quality))
 
-    last_error = None
-
-    # صيغ متعددة للمحاولة - مرتبة من الأفضل إلى الأقل
+    # قائمة واسعة من الصيغ للمحاولة
     formats = [
         opts["format"],  # best[height<=quality]
         "best[height<=720]",
         "best[height<=480]",
-        "best",
+        "best[height<=360]",
         "bestvideo+bestaudio",
+        "bestvideo[height<=720]+bestaudio",
+        "bestvideo[height<=480]+bestaudio",
+        "bestvideo[height<=360]+bestaudio",
+        "best",
+        "18",  # 360p
+        "22",  # 720p
+        "137+140",  # 1080p + audio
+        "136+140",  # 720p + audio
+        "135+140",  # 480p + audio
+        "134+140",  # 360p + audio
+        "133+140",  # 240p + audio
+        "160+140",  # 144p + audio
     ]
+
+    last_error = None
 
     for fmt in formats:
         try:
@@ -150,6 +163,7 @@ async def download_youtube(
                 if not file_path:
                     raise FileNotFoundError("Downloaded file not found.")
 
+                print(f"✅ Success with format: {fmt}")
                 return {
                     "success": True,
                     "file_path": file_path,
@@ -170,4 +184,4 @@ async def download_youtube(
     return {
         "success": False,
         "error": last_error or "Unknown YouTube error.",
-    }
+                }
