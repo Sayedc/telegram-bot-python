@@ -1,4 +1,4 @@
-# services/youtube.py
+# services/youtube.py - النسخة النهائية المعدلة
 
 import os
 import glob
@@ -22,14 +22,12 @@ def _get_cookie_file():
 
 
 def _video_format(quality: str):
-
     return (
-        f"bestvideo*[height<={quality}]"
-        f"+bestaudio/"
-        f"best[height<={quality}]"
-        f"/bestvideo+bestaudio/"
-        f"best/"
-        f"18"
+        f"bv*[height<={quality}]+ba/"
+        f"bestvideo[height<={quality}]+bestaudio/"
+        f"best[height<={quality}]/"
+        "bestvideo+bestaudio/"
+        "best"
     )
 
 
@@ -151,9 +149,9 @@ async def download_youtube(
 
     formats = [
         opts["format"],
-        "bestvideo+bestaudio/best",
+        "bestvideo+bestaudio",
+        "bestvideo*+bestaudio/best",
         "best",
-        "18",
     ]
 
     for fmt in formats:
@@ -219,6 +217,7 @@ async def download_youtube(
 
         except Exception as e:
 
+            print(f"❌ yt-dlp DOWNLOAD ERROR with format {fmt}: {e}")
             last_error = str(e)
 
             continue
@@ -227,4 +226,4 @@ async def download_youtube(
         "success": False,
         "error": last_error
         or "Unknown YouTube error.",
-        }
+    }
