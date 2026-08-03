@@ -1,158 +1,230 @@
 # services/youtube.py
 
 import os
+import glob
 import yt_dlp
 from config import DOWNLOADS_PATH
 
 
-async def download_youtube(url: str, quality: str = "720", audio: bool = False):
-    """
-    Download YouTube video or audio using yt-dlp
-    """
+COOKIES_FILES = [
+    "cookies_youtube.txt",
+    "/app/cookies_youtube.txt",
+    "cookies.txt",
+    "/app/cookies.txt",
+]
 
-    print("\n==============================")
-    print("🎬 YouTube Download Started")
-    print(f"URL: {url}")
-    print(f"Quality: {quality}")
-    print(f"Audio Mode: {audio}")
-    print("==============================")
 
-    try:
-        os.makedirs(DOWNLOADS_PATH, exist_ok=True)
+def _get_cookie_file():
+    for path in COOKIES_FILES:
+        if os.path.exists(path):
+            return path
+    return None
 
-        opts = {
-            "outtmpl": f"{DOWNLOADS_PATH}/%(title).150s.%(ext)s",
-            "quiet": True,
-            "no_warnings": True,
-            "ignoreerrors": False,
-            "noplaylist": True,
 
-            # تحسين الاستقرار
-            "retries": 10,
-            "fragment_retries": 10,
-            "socket_timeout": 30,
+def _video_format(quality: str):
 
-            # إصلاح مشاكل YouTube الحديثة
-            "extractor_args": {
-                "youtube": {
-                    "player_client": ["android", "web"]
-                }
+    return (
+        f"bestvideo*[height<={quality}]"
+        f"+bestaudio/"
+        f"best[height<={quality}]"
+        f"/bestvideo+bestaudio/"
+        f"best/"
+        f"18"
+    )
+
+
+def _audio_options():
+
+    return {
+        "format": "bestaudio/best",
+        "postprocessors": [
+            {
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "192",
+            }
+        ],
+    }
+
+
+def _video_options(quality):
+
+    return {
+        "format": _video_format(quality),
+        "merge_output_format": "mp4",
+    }
+
+
+def _base_options():
+
+    opts = {
+        "outtmpl": os.path.join(
+            DOWNLOADS_PATH,
+            "%(title).150s.%(ext)s"
+        ),
+
+        "quiet": True,
+        "no_warnings": True,
+        "ignoreerrors": False,
+        "noplaylist": True,
+
+        "retries": 10,
+        "fragment_retries": 10,
+        "socket_timeout": 30,
+
+        "nocheckcertificate": True,
+
+        "geo_bypass": True,
+        "geo_bypass_country": "US",
+
+        "concurrent_fragment_downloads": 4,
+
+        "extractor_args": {
+            "youtube": {
+                "player_client": [
+                    "android",
+                    "web",
+                    "ios"
+                ]
             }
         }
+    }
 
-        # ===========================
-        # Cookies
-        # ===========================
+    cookie = _get_cookie_file()
 
-        cookies_file = None
+    if cookie:
+        opts["cookiefile"] = cookie
 
-        if os.path.exists("cookies_youtube.txt"):
-            cookies_file = "cookies_youtube.txt"
+    return opts
 
-        elif os.path.exists("/app/cookies_youtube.txt"):
-            cookies_file = "/app/cookies_youtube.txt"
 
-        elif os.path.exists("cookies.txt"):
-            cookies_file = "cookies.txt"
+def _find_downloaded_file(path):
 
-        if cookies_file:
-            opts["cookiefile"] = cookies_file
-            print(f"🍪 Using cookies: {cookies_file}")
-        else:
-            print("⚠️ No cookies file found")
+    if os.path.exists(path):
+        return path
 
-        # ===========================
-        # Audio
-        # ===========================
+    base = os.path.splitext(path)[0]
 
-        if audio:
+    exts = [
+        ".mp4",
+        ".mkv",
+        ".webm",
+        ".mov",
+        ".m4a",
+        ".mp3",
+    ]
 
-            opts.update({
-                "format": "bestaudio/best",
-                "postprocessors": [{
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "mp3",
-                    "preferredquality": "192",
-                }],
-            })
+    for ext in exts:
 
-            print("🎵 Audio Mode Enabled")
+        candidate = base + ext
 
-        # ===========================
-        # Video
-        # ===========================
+        if os.path.exists(candidate):
+            return candidate
 
-        else:
+    files = glob.glob(base + ".*")
 
-            video_format = (
-                f"bestvideo*[height<={quality}]"
-                f"+bestaudio/"
-                f"best[height<={quality}]"
-                f"/best"
-            )
+    if files:
+        return files[0]
 
-            opts.update({
-                "format": video_format,
-                "merge_output_format": "mp4",
-            })
+    return None
 
-            print(f"🎬 Video Format: {video_format}")
 
-        # ===========================
-        # Download
-        # ===========================
+async def download_youtube(
+    url: str,
+    quality: str = "720",
+    audio: bool = False,
+):
+    """
+    Professional YouTube Downloader
+    """
 
-        print("⏳ Running yt-dlp...")
+    os.makedirs(DOWNLOADS_PATH, exist_ok=True)
 
-        with yt_dlp.YoutubeDL(opts) as ydl:
+    opts = _base_options()
 
-            info = ydl.extract_info(url, download=True)
+    if audio:
+        opts.update(_audio_options())
+    else:
+        opts.update(_video_options(quality))
 
-            if info is None:
-                raise Exception("Failed to fetch video information.")
+    last_error = None
 
-            file_path = ydl.prepare_filename(info)
+    formats = [
+        opts["format"],
+        "bestvideo+bestaudio/best",
+        "best",
+        "18",
+    ]
 
-            if audio:
-                file_path = os.path.splitext(file_path)[0] + ".mp3"
+    for fmt in formats:
 
-            if not os.path.exists(file_path):
+        try:
 
-                # البحث عن الملف النهائي إذا تغير الامتداد
-                base = os.path.splitext(file_path)[0]
+            current = opts.copy()
+            current["format"] = fmt
 
-                for ext in [
-                    ".mp4",
-                    ".mkv",
-                    ".webm",
-                    ".mp3",
-                    ".m4a"
-                ]:
-                    candidate = base + ext
-                    if os.path.exists(candidate):
-                        file_path = candidate
-                        break
+            with yt_dlp.YoutubeDL(current) as ydl:
 
-            if not os.path.exists(file_path):
-                raise Exception("Downloaded file not found.")
+                info = ydl.extract_info(
+                    url,
+                    download=True,
+                )
 
-            print("✅ Download Success")
-            print(f"📁 {file_path}")
+                if not info:
+                    raise Exception(
+                        "Unable to fetch video information."
+                    )
 
-            return {
-                "success": True,
-                "file_path": file_path,
-                "title": info.get("title", "YouTube Video"),
-                "duration": info.get("duration", 0),
-                "platform": "YouTube",
-                "quality": quality,
-            }
+                file_path = ydl.prepare_filename(info)
 
-    except Exception as e:
+                if audio:
+                    file_path = (
+                        os.path.splitext(file_path)[0]
+                        + ".mp3"
+                    )
 
-        print(f"❌ Download Error: {e}")
+                file_path = _find_downloaded_file(file_path)
 
-        return {
-            "success": False,
-            "error": str(e),
-            }
+                if not file_path:
+                    raise FileNotFoundError(
+                        "Downloaded file not found."
+                    )
+
+                return {
+                    "success": True,
+                    "file_path": file_path,
+                    "title": info.get(
+                        "title",
+                        "YouTube Video",
+                    ),
+                    "duration": info.get(
+                        "duration",
+                        0,
+                    ),
+                    "platform": "YouTube",
+                    "quality": quality,
+                    "uploader": info.get(
+                        "uploader",
+                        "",
+                    ),
+                    "thumbnail": info.get(
+                        "thumbnail",
+                        "",
+                    ),
+                    "view_count": info.get(
+                        "view_count",
+                        0,
+                    ),
+                }
+
+        except Exception as e:
+
+            last_error = str(e)
+
+            continue
+
+    return {
+        "success": False,
+        "error": last_error
+        or "Unknown YouTube error.",
+        }
