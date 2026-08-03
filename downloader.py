@@ -1,4 +1,4 @@
-# downloader.py - النسخة النهائية مع التعديل المؤقت
+# downloader.py - نسخة الاختبار النهائية (بدون extractor_args و http_headers)
 
 import os
 import asyncio
@@ -208,60 +208,27 @@ class Downloader:
         }
 
     def _build_opts(self, quality, audio, url=None):
-        quality_map = {
-            "144": "worst[height<=144]",
-            "240": "best[height<=240]",
-            "360": "best[height<=360]",
-            "480": "best[height<=480]",
-            "720": "best[height<=720]",
-            "1080": "best[height<=1080]",
-        }
-
-        fmt = quality_map.get(quality, "best[height<=720]")
-
         opts = {
             "outtmpl": os.path.join(self.download_path, "%(title)s.%(ext)s"),
             "quiet": True,
             "no_warnings": True,
             "ignoreerrors": False,
             "noplaylist": True,
-
             "retries": 10,
             "fragment_retries": 10,
-            "extractor_retries": 10,
-            "file_access_retries": 10,
-
-            "socket_timeout": 30,
-            "geo_bypass": True,
-            "nocheckcertificate": True,
-
-            "retry_sleep_functions": {
-                "http": lambda n: 2,
-            },
-
-            "http_headers": {
-                "User-Agent": "Mozilla/5.0",
-                "Accept-Language": "en-US,en;q=0.9",
-            },
-
-            "extractor_args": {
-                "youtube": {
-                    "player_client": [
-                        "android",
-                        "web",
-                        "ios",
-                    ]
-                }
-            },
-
-            "concurrent_fragment_downloads": 4,
+            "merge_output_format": "mp4",
         }
 
+        # استخدام format أساسي فقط
+        opts["format"] = "bestvideo+bestaudio/best"
+
+        # التحقق من ملفات الكوكيز (بدون تغيير)
         cookies_file = self._get_cookies_file(url)
         if cookies_file and os.path.exists(cookies_file):
             opts["cookiefile"] = cookies_file
             print(f"🍪 Using cookies: {cookies_file}")
 
+        # دعم تيك توك (بدون تغيير)
         if url and "tiktok" in url:
             opts["extractor_args"] = {
                 "tiktok": {
@@ -270,6 +237,7 @@ class Downloader:
             }
             print("🎵 TikTok: without watermark enabled")
 
+        # دعم الصوت (بدون تغيير)
         if audio:
             opts.update({
                 "format": "bestaudio[ext=m4a]/bestaudio/best",
@@ -281,17 +249,7 @@ class Downloader:
             })
             print("🎵 Audio mode: MP3 extraction enabled")
         else:
-            opts.update({
-                "format": (
-                    f"bestvideo*[height<={quality}]+bestaudio/"
-                    f"best[height<={quality}]/"
-                    f"bestvideo+bestaudio/"
-                    f"best/"
-                    f"18"
-                ),
-                "merge_output_format": "mp4",
-            })
-            print("🎬 Video mode: advanced format with fallback")
+            print("🎬 Video mode: basic format")
 
         print(f"⚙️ Options: cookies={cookies_file if cookies_file else 'None'}, format={opts.get('format', 'default')}")
         return opts
