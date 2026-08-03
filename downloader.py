@@ -1,4 +1,5 @@
-# downloader.py - النسخة النهائية
+# downloader.py - النسخة النهائية المعدلة بالكامل
+
 import os
 import asyncio
 import yt_dlp
@@ -71,6 +72,26 @@ class Downloader:
             finally:
                 self.active -= 1
 
+    def _find_file(self, path):
+        if os.path.exists(path):
+            return path
+
+        base = os.path.splitext(path)[0]
+
+        for ext in (
+            ".mp4",
+            ".mkv",
+            ".webm",
+            ".mov",
+            ".mp3",
+            ".m4a",
+        ):
+            candidate = base + ext
+            if os.path.exists(candidate):
+                return candidate
+
+        return None
+
     def _download_sync(self, url, quality, audio):
         print("\n🔍 Starting download...")
         print(f"URL: {url}")
@@ -79,126 +100,133 @@ class Downloader:
 
         opts = self._build_opts(quality, audio, url)
 
-        try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                print("⏳ Running yt-dlp...")
-                info = ydl.extract_info(url, download=True)
-                print("✅ yt-dlp finished")
+        formats = [
+            opts["format"],
+            "bestvideo+bestaudio/best",
+            "best",
+            "18",
+        ]
 
-                if info is None:
-                    print("❌ INFO IS NONE")
+        last_error = None
+
+        for fmt in formats:
+            current = opts.copy()
+            current["format"] = fmt
+
+            try:
+                with yt_dlp.YoutubeDL(current) as ydl:
+                    print(f"⏳ Running yt-dlp with format: {fmt}")
+                    info = ydl.extract_info(url, download=True)
+                    print("✅ yt-dlp finished")
+
+                    if not info:
+                        continue
+
+                    file_path = ydl.prepare_filename(info)
+
+                    if audio:
+                        file_path = (
+                            os.path.splitext(file_path)[0]
+                            + ".mp3"
+                        )
+
+                    file_path = self._find_file(file_path)
+
+                    if not file_path:
+                        continue
+
+                    print(f"📁 File path: {file_path}")
+                    print(f"📦 File size: {os.path.getsize(file_path)} bytes")
+                    print(f"📝 Title: {info.get('title', 'Unknown')}")
+
                     return {
-                        "success": False,
-                        "error": "Invalid URL or unsupported platform",
-                        "error_code": "INVALID_URL"
+                        "success": True,
+                        "file_path": file_path,
+                        "title": info.get("title", "Unknown"),
+                        "duration": info.get("duration", 0),
+                        "uploader": info.get("uploader", ""),
+                        "thumbnail": info.get("thumbnail", ""),
+                        "view_count": info.get("view_count", 0),
                     }
 
-                file_path = ydl.prepare_filename(info)
-                print(f"📁 File path: {file_path}")
-
-                if audio:
-                    file_path = os.path.splitext(file_path)[0] + ".mp3"
-                    print(f"🎵 Audio file path: {file_path}")
-
-                if not os.path.exists(file_path):
-                    print(f"❌ FILE NOT FOUND: {file_path}")
+            except yt_dlp.utils.DownloadError as e:
+                error_msg = str(e)
+                print(f"❌ yt-dlp DOWNLOAD ERROR with format {fmt}: {error_msg[:150]}")
+                
+                # ===== أكواد خطأ محددة =====
+                if "Sign in to confirm" in error_msg:
                     return {
                         "success": False,
-                        "error": "File not found after download",
-                        "error_code": "FILE_NOT_FOUND"
+                        "error": "Sign in required",
+                        "error_code": "COOKIES_REQUIRED"
                     }
 
-                print(f"📦 File size: {os.path.getsize(file_path)} bytes")
-                print(f"📝 Title: {info.get('title', 'Unknown')}")
+                if "Private video" in error_msg:
+                    return {
+                        "success": False,
+                        "error": "Video is private",
+                        "error_code": "PRIVATE_VIDEO"
+                    }
 
-                return {
-                    "success": True,
-                    "file_path": file_path,
-                    "title": info.get("title", "Unknown"),
-                    "duration": info.get("duration", 0),
-                }
+                if "Video unavailable" in error_msg:
+                    return {
+                        "success": False,
+                        "error": "Video unavailable",
+                        "error_code": "VIDEO_UNAVAILABLE"
+                    }
 
-        except yt_dlp.utils.DownloadError as e:
-            error_msg = str(e)
-            print(f"❌ yt-dlp DOWNLOAD ERROR: {error_msg[:150]}")
+                if "This video is age-restricted" in error_msg:
+                    return {
+                        "success": False,
+                        "error": "Age restricted",
+                        "error_code": "AGE_RESTRICTED"
+                    }
 
-            # ===== أكواد خطأ محددة =====
-            if "Sign in to confirm" in error_msg:
-                return {
-                    "success": False,
-                    "error": "Sign in required",
-                    "error_code": "COOKIES_REQUIRED"
-                }
+                if "Requested format is not available" in error_msg:
+                    last_error = "Format not available, trying next format..."
+                    continue
 
-            if "Private video" in error_msg:
-                return {
-                    "success": False,
-                    "error": "Video is private",
-                    "error_code": "PRIVATE_VIDEO"
-                }
+                if "rate limit" in error_msg.lower():
+                    return {
+                        "success": False,
+                        "error": "Rate limited",
+                        "error_code": "RATE_LIMIT"
+                    }
 
-            if "Video unavailable" in error_msg:
-                return {
-                    "success": False,
-                    "error": "Video unavailable",
-                    "error_code": "VIDEO_UNAVAILABLE"
-                }
+                if "IP address is blocked" in error_msg:
+                    return {
+                        "success": False,
+                        "error": "Your IP address is blocked from accessing this post",
+                        "error_code": "IP_BLOCKED"
+                    }
 
-            if "This video is age-restricted" in error_msg:
-                return {
-                    "success": False,
-                    "error": "Age restricted",
-                    "error_code": "AGE_RESTRICTED"
-                }
+                if "ffmpeg is not installed" in error_msg:
+                    return {
+                        "success": False,
+                        "error": "FFmpeg is not installed. Aborting due to -",
+                        "error_code": "FFMPEG_MISSING"
+                    }
 
-            if "Requested format is not available" in error_msg:
-                return {
-                    "success": False,
-                    "error": "Format not available",
-                    "error_code": "FORMAT_NOT_AVAILABLE"
-                }
+                if "cookies" in error_msg.lower():
+                    return {
+                        "success": False,
+                        "error": "Cookie error",
+                        "error_code": "COOKIES_ERROR"
+                    }
 
-            if "rate limit" in error_msg.lower():
-                return {
-                    "success": False,
-                    "error": "Rate limited",
-                    "error_code": "RATE_LIMIT"
-                }
+                last_error = error_msg
+                continue
 
-            if "IP address is blocked" in error_msg:
-                return {
-                    "success": False,
-                    "error": "Your IP address is blocked from accessing this post",
-                    "error_code": "IP_BLOCKED"
-                }
+            except Exception as e:
+                print(f"❌ EXCEPTION with format {fmt}: {e}")
+                last_error = str(e)
+                continue
 
-            if "ffmpeg is not installed" in error_msg:
-                return {
-                    "success": False,
-                    "error": "FFmpeg is not installed. Aborting due to -",
-                    "error_code": "FFMPEG_MISSING"
-                }
-
-            if "cookies" in error_msg.lower():
-                return {
-                    "success": False,
-                    "error": "Cookie error",
-                    "error_code": "COOKIES_ERROR"
-                }
-
-            return {
-                "success": False,
-                "error": error_msg[:150],
-                "error_code": "DOWNLOAD_ERROR"
-            }
-
-        except Exception as e:
-            print(f"❌ UNKNOWN EXCEPTION: {e}")
-            return {
-                "success": False,
-                "error": str(e)[:150],
-                "error_code": "UNKNOWN_ERROR"
-            }
+        return {
+            "success": False,
+            "error": last_error or "Unknown error",
+            "error_code": "DOWNLOAD_ERROR",
+        }
 
     def _build_opts(self, quality, audio, url=None):
         quality_map = {
@@ -221,11 +249,16 @@ class Downloader:
 
             "retries": 10,
             "fragment_retries": 10,
-            "extractor_retries": 5,
+            "extractor_retries": 10,
+            "file_access_retries": 10,
 
             "socket_timeout": 30,
             "geo_bypass": True,
             "nocheckcertificate": True,
+
+            "retry_sleep_functions": {
+                "http": lambda n: 2,
+            },
 
             "http_headers": {
                 "User-Agent": "Mozilla/5.0",
@@ -234,11 +267,15 @@ class Downloader:
 
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["android", "tv"],
+                    "player_client": [
+                        "android",
+                        "web",
+                        "ios",
+                    ]
                 }
             },
 
-            "concurrent_fragment_downloads": 1,
+            "concurrent_fragment_downloads": 4,
         }
 
         cookies_file = self._get_cookies_file(url)
@@ -267,8 +304,12 @@ class Downloader:
         else:
             opts.update({
                 "format": (
-                    "bv*[height<=720]+ba/bv*+ba/"
-                    "bestvideo[height<=720]+bestaudio/best"
+                    f"bestvideo*[height<={quality}]"
+                    f"+bestaudio/"
+                    f"best[height<={quality}]"
+                    f"/bestvideo+bestaudio"
+                    f"/best"
+                    f"/18"
                 ),
                 "merge_output_format": "mp4",
             })
