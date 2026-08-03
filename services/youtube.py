@@ -17,12 +17,13 @@ COOKIES_FILES = [
 def _get_cookie_file():
     for path in COOKIES_FILES:
         if os.path.exists(path):
+            print(f"🍪 Found cookies at: {path}")
             return path
+    print("⚠️ No cookies file found")
     return None
 
 
 def _video_format(quality: str):
-    # استخدام best كصيغة أساسية
     return "best"
 
 
@@ -70,7 +71,7 @@ def _base_options():
         },
         "extractor_args": {
             "youtube": {
-                "player_client": ["android", "web"],
+                "player_client": ["android", "web", "ios"],
             }
         },
     }
@@ -78,7 +79,6 @@ def _base_options():
     cookie = _get_cookie_file()
     if cookie:
         opts["cookiefile"] = cookie
-        print(f"🍪 Using cookies: {cookie}")
 
     return opts
 
@@ -128,15 +128,14 @@ async def download_youtube(
     else:
         opts.update(_video_options(quality))
 
-    # قائمة واسعة من الصيغ للمحاولة (مرتبة من الأفضل إلى الأقل)
     formats = [
         "best",
         "bestvideo+bestaudio",
         "best[height<=720]",
         "best[height<=480]",
         "best[height<=360]",
-        "22",  # 720p
-        "18",  # 360p
+        "22",
+        "18",
     ]
 
     last_error = None
@@ -184,4 +183,4 @@ async def download_youtube(
     return {
         "success": False,
         "error": last_error or "Unknown YouTube error.",
-                    }
+    }
