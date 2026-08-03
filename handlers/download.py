@@ -1,4 +1,4 @@
-# handlers/download.py - النسخة النهائية
+# handlers/download.py - النسخة النهائية (مع إصلاح إرسال الخطأ)
 
 import os
 from datetime import datetime
@@ -116,6 +116,8 @@ async def handle_download(update, context):
 
     except Exception as e:
         error_text = get_random_error_text()
+        # استخدام parse_mode=None لمنع تنسيق Markdown
         await msg.edit_text(
-            f"❌ {error_text}\n\n{str(e)[:300]}"
+            f"❌ {error_text}\n\n{str(e)[:300]}",
+            parse_mode=None
             )
