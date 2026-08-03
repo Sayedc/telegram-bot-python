@@ -155,4 +155,4 @@ async def download_youtube(url: str, quality: str = "720", audio: bool = False):
         return {
             "success": False,
             "error": str(e),
-                }
+            }
