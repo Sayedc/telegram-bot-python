@@ -1,5 +1,5 @@
 python-telegram-bot==20.6
-yt-dlp
+yt-dlp>=2024.07.16
 aiofiles==23.2.1
 pillow==10.1.0
 requests>=2.32.4
