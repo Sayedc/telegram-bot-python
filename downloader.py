@@ -1,4 +1,4 @@
-# downloader.py - نسخة الاختبار النهائية (بدون extractor_args و http_headers)
+# downloader.py - النسخة النهائية المبسطة (بدون extractor_args و http_headers)
 
 import os
 import asyncio
@@ -102,9 +102,8 @@ class Downloader:
 
         formats = [
             opts["format"],
-            "bestvideo+bestaudio/best",
+            "bestvideo+bestaudio",
             "best",
-            "18",
         ]
 
         last_error = None
@@ -116,16 +115,36 @@ class Downloader:
             try:
                 with yt_dlp.YoutubeDL(current) as ydl:
                     print(f"⏳ Running yt-dlp with format: {fmt}")
-                    info = ydl.extract_info(url, download=False)
+                    info = ydl.extract_info(url, download=True)
 
-                    print("=" * 80)
-                    print(info)
-                    print("=" * 80)
+                    if not info:
+                        continue
+
+                    file_path = ydl.prepare_filename(info)
+
+                    if audio:
+                        file_path = (
+                            os.path.splitext(file_path)[0]
+                            + ".mp3"
+                        )
+
+                    file_path = self._find_file(file_path)
+
+                    if not file_path:
+                        continue
+
+                    print(f"📁 File path: {file_path}")
+                    print(f"📦 File size: {os.path.getsize(file_path)} bytes")
+                    print(f"📝 Title: {info.get('title', 'Unknown')}")
 
                     return {
                         "success": True,
+                        "file_path": file_path,
                         "title": info.get("title", "Unknown"),
                         "duration": info.get("duration", 0),
+                        "uploader": info.get("uploader", ""),
+                        "thumbnail": info.get("thumbnail", ""),
+                        "view_count": info.get("view_count", 0),
                     }
 
             except yt_dlp.utils.DownloadError as e:
@@ -220,7 +239,7 @@ class Downloader:
         }
 
         # استخدام format أساسي فقط
-        opts["format"] = "bestvideo+bestaudio/best"
+        opts["format"] = "bestvideo+bestaudio"
 
         # التحقق من ملفات الكوكيز (بدون تغيير)
         cookies_file = self._get_cookies_file(url)
