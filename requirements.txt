@@ -1,5 +1,5 @@
 python-telegram-bot==22.3
-yt-dlp>=2026.7.30
+yt-dlp
 
 aiofiles==24.1.0
 pillow==11.3.0
@@ -15,5 +15,5 @@ mutagen==1.47.0
 pycryptodomex==3.23.0
 websockets==15.0.1
 
-certifi==2026.7.14
+certifi
 urllib3==2.5.0
