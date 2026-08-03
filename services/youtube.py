@@ -1,4 +1,4 @@
-# services/youtube.py - النسخة النهائية المبسطة
+# services/youtube.py - النسخة النهائية (مع تحديث الفورمات)
 
 import os
 import glob
@@ -22,11 +22,7 @@ def _get_cookie_file():
 
 
 def _video_format(quality: str):
-    return (
-        f"bestvideo[height<={quality}]+bestaudio/"
-        f"best[height<={quality}]/"
-        f"bestvideo+bestaudio"
-    )
+    return f"best[height<={quality}]"
 
 
 def _audio_options():
@@ -123,8 +119,10 @@ async def download_youtube(
     last_error = None
 
     formats = [
-        "bestvideo+bestaudio",
+        opts["format"],
+        "best[height<=720]",
         "best",
+        "bestvideo+bestaudio",
     ]
 
     for fmt in formats:
@@ -169,4 +167,4 @@ async def download_youtube(
     return {
         "success": False,
         "error": last_error or "Unknown YouTube error.",
-                }
+    }
