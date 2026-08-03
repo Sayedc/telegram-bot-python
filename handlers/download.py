@@ -1,4 +1,4 @@
-# handlers/download.py
+# handlers/download.py - النسخة المعدلة بالكامل
 
 import os
 from datetime import datetime
@@ -71,6 +71,54 @@ async def handle_download(update, context):
         file_size = os.path.getsize(file_path) / 1048576
 
         if audio:
+            with open(file_path, "rb") as f:
+                await update.message.reply_audio(
+                    audio=f,
+                    title=title[:80],
+                    caption=f"{get_random_success_text()}\n\n{SIGNATURE}",
+                    read_timeout=300,
+                    write_timeout=300,
+                )
+        else:
+            with open(file_path, "rb") as f:
+                await update.message.reply_video(
+                    video=f,
+                    caption=(
+                        f"🎬 {title[:80]}\n"
+                        f"📦 {file_size:.2f} MB\n"
+                        f"🎥 الجودة: {quality}p\n"
+                        f"📱 {platform}\n\n"
+                        f"{SIGNATURE}"
+                    ),
+                    supports_streaming=True,
+                    read_timeout=300,
+                    write_timeout=300,
+                    connect_timeout=60,
+                    pool_timeout=60,
+                )
+
+        # تنظيف الملف بأمان
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception:
+            pass
+
+        # تحديث الإحصائيات
+        increase_downloads(user.id)
+
+        # تسجيل المقاييس
+        elapsed = (datetime.now() - start_time).total_seconds()
+        metrics.record_download(elapsed, platform, user.id)
+
+        # حذف رسالة التحميل
+        await msg.delete()
+
+    except Exception as e:
+        error_text = get_random_error_text()
+        await msg.edit_text(
+            f"❌ {error_text}\n\n{str(e)[:300]}"
+                )        if audio:
             with open(file_path, "rb") as f:
                 await update.message.reply_audio(
                     audio=f,
