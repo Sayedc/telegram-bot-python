@@ -7,7 +7,7 @@ from datetime import datetime
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from config import SIGNATURE, ADMIN_IDS
-from core import downloader, metrics
+from core import metrics
 from utils.helpers import extract_link, get_platform
 from utils.messages import get_random_success, get_error, signature
 from database.user_repository import increase_downloads
