@@ -77,7 +77,6 @@ def _base_options():
     }
 
     # بروكسي اختياري من متغيرات البيئة
-    import os
     proxy = os.getenv("PROXY")
     if proxy:
         opts["proxy"] = proxy
@@ -192,4 +191,4 @@ async def download_youtube(
     return {
         "success": False,
         "error": last_error or "Unknown YouTube error.",
-                }
+            }
