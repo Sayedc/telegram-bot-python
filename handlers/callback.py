@@ -24,7 +24,7 @@ from database.user_repository import (
     get_admin_stats,
 )
 from config import ADMIN_IDS, SIGNATURE
-from core import downloader, metrics, get_uptime
+from core import metrics, get_uptime
 from utils.constants import SUCCESS_TEXTS, ERROR_TEXTS
 from handlers.settings import set_user_quality
 
@@ -160,7 +160,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif data == "confirm_no":
         await query.edit_message_text(
-            "✅ *تم إلغاء العملية*\n\n✨ {SIGNATURE} ✨",
+            f"✅ *تم إلغاء العملية*\n\n✨ {SIGNATURE} ✨",
             parse_mode="Markdown",
         )
 
@@ -183,7 +183,6 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         stats = get_admin_stats()
-        d_stats = downloader.get_stats()
 
         text = f"""
 👑 إحصائيات البوت
@@ -198,20 +197,6 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 📥 إجمالي التحميلات:
 {stats["total_downloads"]}
-
-━━━━━━━━━━━━━━━━━━
-
-⚡ التحميلات النشطة:
-{d_stats["active"]}
-
-📋 قائمة الانتظار:
-{d_stats["queue_size"]}
-
-✅ الناجحة:
-{d_stats["success"]}
-
-❌ الفاشلة:
-{d_stats["failed"]}
 
 ━━━━━━━━━━━━━━━━━━
 
@@ -386,7 +371,6 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         summary = metrics.get_summary()
-        stats = downloader.get_stats()
 
         text = f"""
 📊 مقاييس الأداء
@@ -404,20 +388,6 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 🏆 أكثر منصة:
 {summary['top_platform']}
-
-━━━━━━━━━━━━━━
-
-📦 Queue:
-{stats['queue_size']}
-
-🚀 Active:
-{stats['active']}
-
-✅ Success:
-{stats['success']}
-
-❌ Failed:
-{stats['failed']}
 
 ━━━━━━━━━━━━━━
 
