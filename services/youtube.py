@@ -24,7 +24,11 @@ def _get_cookie_file():
 
 
 def _video_format(quality: str):
-    return f"bestvideo[height<={quality}]+bestaudio/best[height<={quality}]/best"
+    return (
+        f"bv*[height<={quality}]+ba/"
+        f"b[height<={quality}]/"
+        "bv+ba/b"
+    )
 
 
 def _audio_options():
@@ -134,61 +138,40 @@ async def download_youtube(
     else:
         opts.update(_video_options(quality))
 
-    # صيغ متعددة مع fallback - مرتبة من الأفضل للأقل
-    formats = [
-        f"bestvideo[height<={quality}]+bestaudio/best[height<={quality}]/best",
-        "best[height<=720]/best",
-        "best[height<=480]/best",
-        "best[height<=360]/best",
-        "best",
-        "bestvideo+bestaudio",
-        "22",
-        "18",
-    ]
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            print(f"⏳ Running yt-dlp with format: {opts['format']}")
+            info = ydl.extract_info(url, download=True)
 
-    last_error = None
+            if not info:
+                raise Exception("Unable to fetch video information.")
 
-    for fmt in formats:
-        try:
-            current = opts.copy()
-            current["format"] = fmt
+            file_path = ydl.prepare_filename(info)
 
-            with yt_dlp.YoutubeDL(current) as ydl:
-                print(f"⏳ Running yt-dlp with format: {fmt}")
-                info = ydl.extract_info(url, download=True)
+            if audio:
+                file_path = os.path.splitext(file_path)[0] + ".mp3"
 
-                if not info:
-                    raise Exception("Unable to fetch video information.")
+            file_path = _find_downloaded_file(file_path)
 
-                file_path = ydl.prepare_filename(info)
+            if not file_path:
+                raise FileNotFoundError("Downloaded file not found.")
 
-                if audio:
-                    file_path = os.path.splitext(file_path)[0] + ".mp3"
-
-                file_path = _find_downloaded_file(file_path)
-
-                if not file_path:
-                    raise FileNotFoundError("Downloaded file not found.")
-
-                print(f"✅ Success with format: {fmt}")
-                return {
-                    "success": True,
-                    "file_path": file_path,
-                    "title": info.get("title", "YouTube Video"),
-                    "duration": info.get("duration", 0),
-                    "platform": "YouTube",
-                    "quality": quality,
-                    "uploader": info.get("uploader", ""),
-                    "thumbnail": info.get("thumbnail", ""),
-                    "view_count": info.get("view_count", 0),
-                }
-
-        except Exception as e:
-            print(f"❌ yt-dlp DOWNLOAD ERROR with format {fmt}: {e}")
-            last_error = str(e)
-            continue
-
-    return {
-        "success": False,
-        "error": last_error or "Unknown YouTube error.",
+            print(f"✅ Download completed successfully")
+            return {
+                "success": True,
+                "file_path": file_path,
+                "title": info.get("title", "YouTube Video"),
+                "duration": info.get("duration", 0),
+                "platform": "YouTube",
+                "quality": quality,
+                "uploader": info.get("uploader", ""),
+                "thumbnail": info.get("thumbnail", ""),
+                "view_count": info.get("view_count", 0),
             }
+
+    except Exception as e:
+        print(f"❌ yt-dlp DOWNLOAD ERROR: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+    }
