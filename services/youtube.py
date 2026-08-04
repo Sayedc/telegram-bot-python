@@ -1,4 +1,4 @@
-# services/youtube.py - النسخة النهائية (مع بروكسي)
+# services/youtube.py - النسخة النهائية (مع بروكسي وتحديث الفورمات)
 
 import os
 import glob
@@ -129,12 +129,13 @@ async def download_youtube(
     else:
         opts.update(_video_options(quality))
 
+    # صيغ متعددة مع fallback - مرتبة من الأفضل للأقل
     formats = [
+        "best[height<=720]/best",
+        "best[height<=480]/best",
+        "best[height<=360]/best",
         "best",
         "bestvideo+bestaudio",
-        "best[height<=720]",
-        "best[height<=480]",
-        "best[height<=360]",
         "22",
         "18",
     ]
@@ -184,4 +185,4 @@ async def download_youtube(
     return {
         "success": False,
         "error": last_error or "Unknown YouTube error.",
-            }
+    }
