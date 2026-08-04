@@ -55,9 +55,8 @@ async def handle_download(update, context):
         elif platform == "Instagram":
             result = await download_instagram(url, quality, audio)
         else:
-            # محاولة عامة
-            from services.yt_service import get_audio_only
-            result = await get_audio_only(url) if audio else await download_youtube(url, quality, audio)
+            # محاولة عامة (YouTube fallback)
+            result = await download_youtube(url, quality, audio)
 
         # التحقق من النتيجة
         if not result or not result.get("success"):
@@ -120,4 +119,4 @@ async def handle_download(update, context):
         await msg.edit_text(
             f"❌ {error_text}\n\n{str(e)[:300]}",
             parse_mode=None
-            )
+        )
