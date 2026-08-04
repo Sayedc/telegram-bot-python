@@ -9,9 +9,9 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from config import SIGNATURE, ADMIN_IDS
 from core import metrics
 from utils.helpers import extract_link, get_platform
-from utils.messages import get_random_success, get_error, signature
+from utils.messages import get_random_success, get_error
 from database.user_repository import increase_downloads
-from utils.loading import LoadingMessage
+from handlers.download import handle_download
 
 
 # ===== Helper Functions =====
@@ -191,177 +191,10 @@ async def handle_message(update, context):
 
         return
 
-    # ===== باقي كود التحميل =====
+    # ===== استخدام handle_download =====
     if not url:
         await update.message.reply_text("❌ أرسل رابط صحيح")
         return
 
-    platform = get_platform(url)
-    audio_mode = context.user_data.get("audio", False)
-    quality = context.user_data.get("quality", "720")
-
-    # ===== أول رد فوري =====
-    msg = await update.message.reply_text(
-        "━━━━━━━━━━━━━━━━━━\n\n"
-        f"{platform_icon(platform)}\n\n"
-        "🔍 تحليل الرابط...\n\n"
-        "▰▱▱▱▱\n\n"
-        "━━━━━━━━━━━━━━━━━━"
-    )
-
-    # ===== أنيميشن التحميل =====
-    steps = [
-        ("🔍 تحليل الرابط...", "▰▱▱▱▱"),
-        ("🌐 الاتصال بالخادم...", "▰▰▱▱▱"),
-        ("📥 تنزيل الفيديو...", "▰▰▰▱▱"),
-        ("⚙️ معالجة الفيديو...", "▰▰▰▰▱"),
-        ("✨ إنهاء العملية...", "▰▰▰▰▰"),
-    ]
-
-    async def animate_loading():
-        for i, step in enumerate(steps):
-            try:
-                await msg.edit_text(
-                    "━━━━━━━━━━━━━━━━━━\n\n"
-                    f"{platform_icon(platform)}\n\n"
-                    f"{step[0]}\n\n"
-                    f"{step[1]}\n\n"
-                    "━━━━━━━━━━━━━━━━━━"
-                )
-            except:
-                pass
-            await asyncio.sleep(1.2)
-
-    task = asyncio.create_task(animate_loading())
-
-    start_time = datetime.now()
-
-    try:
-        try:
-            result = await downloader.download(
-                url=url,
-                quality=quality,
-                audio=audio_mode
-            )
-        finally:
-            task.cancel()
-
-        print("=" * 60)
-        print("DOWNLOAD RESULT:")
-        print(result)
-        print("=" * 60)
-
-        if not result or not result.get("success"):
-            error_msg = result.get("error", "Unknown error")
-            error_code = result.get("error_code", "UNKNOWN_ERROR")
-
-            await msg.edit_text(
-                get_error(error_code),
-                reply_markup=developer_button,
-                parse_mode="HTML"
-            )
-
-            await send_admin_error(
-                context,
-                user_id,
-                url,
-                platform,
-                error_msg,
-                error_code
-            )
-            return
-
-        file_path = result.get("file_path")
-        title = result.get("title", "Media")
-
-        print("FILE PATH:", file_path)
-
-        if file_path:
-            print("FILE EXISTS:", os.path.exists(file_path))
-
-            if os.path.exists(file_path):
-                print("FILE SIZE:", os.path.getsize(file_path))
-
-        if not file_path or not os.path.exists(file_path):
-            await msg.edit_text(
-                get_error("FILE_NOT_FOUND"),
-                reply_markup=developer_button,
-                parse_mode="HTML"
-            )
-            
-            await send_admin_error(
-                context,
-                user_id,
-                url,
-                platform,
-                "File not found after download",
-                "FILE_NOT_FOUND"
-            )
-            return
-
-        file_size = os.path.getsize(file_path) / 1048576
-
-        # ===== حذف رسالة التحميل وإرسال الفيديو مباشرة =====
-        await msg.delete()
-
-        if audio_mode:
-            with open(file_path, "rb") as f:
-                await update.message.reply_audio(
-                    audio=f,
-                    title=title[:50],
-                    caption=f"{get_random_success()}\n\n{SIGNATURE}",
-                )
-        else:
-            with open(file_path, "rb") as f:
-                await update.message.reply_video(
-                    video=f,
-                    caption=f"🎬 {title[:60]}\n📦 {file_size:.1f} MB\n⚡ {quality}p\n📱 {platform}\n\n{SIGNATURE}",
-                    supports_streaming=True,
-                )
-
-        print("✅ FILE SENT SUCCESS")
-
-        os.remove(file_path)
-        increase_downloads(user.id)
-
-        elapsed = (datetime.now() - start_time).total_seconds()
-        metrics.record_download(elapsed, platform, user.id)
-
-    except asyncio.TimeoutError:
-        await msg.edit_text(
-            get_error("TIMEOUT"),
-            reply_markup=developer_button,
-            parse_mode="HTML"
-        )
-        await send_admin_error(
-            context,
-            user_id,
-            url,
-            platform,
-            "Timed out",
-            "TIMEOUT",
-            traceback.format_exc()
-        )
-
-    except Exception as e:
-        print("=" * 60)
-        print("FATAL ERROR")
-        print(repr(e))
-        traceback.print_exc()
-        print("=" * 60)
-
-        await msg.edit_text(
-            get_error("UNKNOWN_ERROR"),
-            reply_markup=developer_button,
-            parse_mode="HTML"
-        )
-
-        await send_admin_error(
-            context,
-            user_id,
-            url,
-            platform,
-            str(e),
-            "EXCEPTION",
-            traceback.format_exc()
-    )
+    # تفويض التحميل إلى handle_download
+    await handle_download(update, context)
