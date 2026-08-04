@@ -12,9 +12,8 @@ from database.user_repository import (
     unblock_user
 )
 
-from core import downloader, metrics
-
-from core import is_admin, get_uptime, downloader, metrics
+from core import metrics, rate_limiter, get_uptime
+from core import is_admin
 
 
 # ==========================
@@ -27,19 +26,11 @@ async def admin_stats(update, context):
     users = get_users()
     blocked = sum(1 for u in users.values() if u.get("blocked"))
 
-    stats = downloader.get_stats()
-
     text = f"""
 👑 ADMIN DASHBOARD
 
 👥 Users: {len(users)}
 🚫 Blocked: {blocked}
-
-📥 Downloads:
-• Queue: {stats['queue_size']}
-• Active: {stats['active']}
-• Success: {stats['success']}
-• Failed: {stats['failed']}
 
 ⏱ Uptime: {get_uptime()}
 
@@ -138,7 +129,7 @@ async def clear_cmd(update, context):
 
 
 # ==========================
-# BACKUP (FIXED - THIS WAS YOUR ERROR)
+# BACKUP
 # ==========================
 async def backup_cmd(update, context):
     if not is_admin(update.effective_user.id):
@@ -191,18 +182,13 @@ async def admin_metrics_cmd(update, context):
     if not is_admin(update.effective_user.id):
         return
 
-    stats = downloader.get_stats()
-
     await update.message.reply_text(
         f"""
 📊 SYSTEM METRICS
 
-Queue: {stats['queue_size']}
-Active: {stats['active']}
-Success: {stats['success']}
-Failed: {stats['failed']}
+Uptime: {get_uptime()}
 
 ━━━━━━━━━━━━
 {SIGNATURE}
 """
-    )
+                                       )
