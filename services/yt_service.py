@@ -22,6 +22,13 @@ async def get_audio_only(url: str):
             "cookiefile": COOKIES_FILE if os.path.exists(COOKIES_FILE) else None,
         }
 
+        import pprint
+
+        print("=" * 60)
+        print("YDL OPTIONS")
+        pprint.pprint(opts)
+        print("=" * 60)
+
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=True)
             file_path = ydl.prepare_filename(info)
@@ -52,6 +59,13 @@ async def get_video_info(url: str):
             "no_warnings": True,
         }
 
+        import pprint
+
+        print("=" * 60)
+        print("YDL OPTIONS")
+        pprint.pprint(opts)
+        print("=" * 60)
+
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=False)
 
@@ -69,4 +83,4 @@ async def get_video_info(url: str):
         return {
             "success": False,
             "error": str(e),
-          }
+            }
