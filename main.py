@@ -15,7 +15,7 @@ from telegram.ext import (
 from handlers.start import start
 from handlers.message import handle_message
 from handlers.callback import callback_handler
-from handlers.errors import error_handler  # ✅ تمت الإضافة
+from handlers.errors import error_handler
 
 from handlers.admin import (
     admin_stats,
@@ -37,35 +37,13 @@ from config import BOT_TOKEN, DOWNLOADS_PATH, ADMIN_IDS
 # ==========================
 # CORE SYSTEM
 # ==========================
-from core import downloader, metrics, rate_limiter, is_admin, get_uptime
+from core import metrics, rate_limiter, is_admin, get_uptime
 
 
 BOT_USERNAME = "@SK_Download_bot"
 SIGNATURE = "✨ ✨ 𝓐𝓵𝓱𝓪𝔀𝔂 ✨ ✨"
 
 START_TIME = datetime.now()
-
-
-# ==========================
-# POST INIT
-# ==========================
-async def post_init(app):
-    await downloader.start()
-
-
-# ==========================
-# CALLBACK (MAIN FIX)
-# ==========================
-async def callback(update, context):
-    q = update.callback_query
-    await q.answer()
-
-    data = q.data
-
-    if callback_handler:
-        return await callback_handler(update, context)
-
-    await q.edit_message_text("⚠️ Invalid action")
 
 
 # ==========================
@@ -78,7 +56,6 @@ def main():
     app = (
         Application.builder()
         .token(BOT_TOKEN)
-        .post_init(post_init)
         .build()
     )
 
@@ -87,7 +64,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     # CALLBACK
-    app.add_handler(CallbackQueryHandler(callback))
+    app.add_handler(CallbackQueryHandler(callback_handler))
 
     # ADMIN
     app.add_handler(CommandHandler("stats", admin_stats))
@@ -100,13 +77,12 @@ def main():
     app.add_handler(CommandHandler("unblock", unblock_user_cmd))
     app.add_handler(CommandHandler("metrics", admin_metrics_cmd))
 
-    # ===== ERROR HANDLER =====
-    app.add_error_handler(error_handler)  # ✅ تمت الإضافة
+    # ERROR HANDLER
+    app.add_error_handler(error_handler)
 
     print("=" * 50)
     print(f"🤖 BOT: {BOT_USERNAME}")
     print("🚀 STATUS: PRODUCTION READY")
-    print("⚡ CALLBACK FIXED")
     print("=" * 50)
 
     app.run_polling()
