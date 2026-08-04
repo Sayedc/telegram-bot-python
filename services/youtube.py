@@ -25,9 +25,10 @@ def _get_cookie_file():
 
 def _video_format(quality: str):
     return (
-        f"bv*[height<={quality}]+ba/"
-        f"b[height<={quality}]/"
-        "bv+ba/b"
+        f"bestvideo[height<={quality}]+bestaudio/"
+        f"best[height<={quality}]/"
+        "bestvideo+bestaudio/"
+        "best"
     )
 
 
@@ -68,6 +69,14 @@ def _base_options():
         "geo_bypass": True,
         "geo_bypass_country": "US",
         "concurrent_fragment_downloads": 4,
+        "extract_flat": False,
+        "live_from_start": True,
+        "extractor_retries": 5,
+        "format_sort": [
+            "res",
+            "codec:h264",
+            "ext:mp4"
+        ],
         "http_headers": {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -75,7 +84,12 @@ def _base_options():
         },
         "extractor_args": {
             "youtube": {
-                "player_client": ["android", "web", "ios"],
+                "player_client": [
+                    "android",
+                    "tv",
+                    "ios"
+                ],
+                "player_skip": [],
             }
         },
     }
@@ -174,4 +188,4 @@ async def download_youtube(
         return {
             "success": False,
             "error": str(e),
-    }
+        }
