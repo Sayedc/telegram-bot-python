@@ -1,4 +1,4 @@
-# services/youtube.py - النسخة النهائية (مع حل مشكلة Requested format)
+# services/youtube.py - النسخة النهائية (مع بروكسي)
 
 import os
 import glob
@@ -64,6 +64,7 @@ def _base_options():
         "geo_bypass": True,
         "geo_bypass_country": "US",
         "concurrent_fragment_downloads": 4,
+        "proxy": "http://117.236.124.166:3128",  # بروكسي هندي شغال
         "http_headers": {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -183,4 +184,4 @@ async def download_youtube(
     return {
         "success": False,
         "error": last_error or "Unknown YouTube error.",
-    }
+            }
