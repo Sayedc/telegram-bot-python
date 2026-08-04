@@ -1,4 +1,4 @@
-# services/youtube.py - النسخة النهائية (مع بروكسي وتحديث الفورمات)
+# services/youtube.py - النسخة النهائية (مع بروكسي اختياري وتحسين الفورمات)
 
 import os
 import glob
@@ -24,7 +24,7 @@ def _get_cookie_file():
 
 
 def _video_format(quality: str):
-    return "best"
+    return f"bestvideo[height<={quality}]+bestaudio/best[height<={quality}]/best"
 
 
 def _audio_options():
@@ -64,7 +64,6 @@ def _base_options():
         "geo_bypass": True,
         "geo_bypass_country": "US",
         "concurrent_fragment_downloads": 4,
-        "proxy": "http://117.236.124.166:3128",  # بروكسي هندي شغال
         "http_headers": {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -76,6 +75,13 @@ def _base_options():
             }
         },
     }
+
+    # بروكسي اختياري من متغيرات البيئة
+    import os
+    proxy = os.getenv("PROXY")
+    if proxy:
+        opts["proxy"] = proxy
+        print(f"🌐 Using proxy: {proxy}")
 
     cookie = _get_cookie_file()
     if cookie:
@@ -131,6 +137,7 @@ async def download_youtube(
 
     # صيغ متعددة مع fallback - مرتبة من الأفضل للأقل
     formats = [
+        f"bestvideo[height<={quality}]+bestaudio/best[height<={quality}]/best",
         "best[height<=720]/best",
         "best[height<=480]/best",
         "best[height<=360]/best",
@@ -185,4 +192,4 @@ async def download_youtube(
     return {
         "success": False,
         "error": last_error or "Unknown YouTube error.",
-    }
+                }
