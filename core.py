@@ -1,11 +1,10 @@
 from datetime import datetime
-from downloader import Downloader
 from metrics import Metrics
 from rate_limiter import RateLimiter
 from config import DOWNLOADS_PATH, ADMIN_IDS
 
 # shared instances
-downloader = Downloader(DOWNLOADS_PATH, max_concurrent=3)
+# downloader = Downloader(DOWNLOADS_PATH, max_concurrent=3)  # تم إزالة Downloader
 metrics = Metrics()
 rate_limiter = RateLimiter(10, 60)
 
