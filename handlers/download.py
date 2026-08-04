@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 
 from config import SIGNATURE
-from core import downloader, metrics, rate_limiter
+from core import metrics
 from utils.helpers import extract_link, get_platform
 from utils.messages import get_random_processing_text, get_random_success_text, get_random_error_text
 from database.user_repository import increase_downloads
@@ -12,7 +12,6 @@ from services.tiktok import download_tiktok
 from services.youtube import download_youtube
 from services.facebook import download_facebook
 from services.instagram import download_instagram
-from utils.signature import SIGNATURE
 
 
 async def handle_download(update, context):
@@ -119,4 +118,4 @@ async def handle_download(update, context):
         await msg.edit_text(
             f"❌ {error_text}\n\n{str(e)[:300]}",
             parse_mode=None
-        )
+            )
