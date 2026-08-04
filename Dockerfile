@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     nodejs \
     npm \
+    && npm install -g jsdom \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -25,6 +26,10 @@ RUN python -m pip install --upgrade pip setuptools wheel
 RUN pip install --no-cache-dir -r requirements.txt
 
 RUN pip install --no-cache-dir --upgrade yt-dlp
+
+# للتأكد من تثبيت yt-dlp و Node أثناء البناء
+RUN yt-dlp --version
+RUN node -v
 
 COPY . .
 
