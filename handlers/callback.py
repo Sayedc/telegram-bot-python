@@ -3,7 +3,7 @@ import os
 import shutil
 from datetime import datetime
 
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from telegram.helpers import escape_markdown
 
@@ -419,6 +419,89 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         os._exit(0)
 
     # =========================
+    # حذف ريبوستات تيك توك (جديد)
+    # =========================
+    elif data == "delete_reposts":
+        await query.edit_message_text(
+            "⚠️ *حذف ريبوستات تيك توك*\n\n"
+            "🗑️ هذه الميزة ستحذف *كل الريبوستات* من حسابك.\n\n"
+            "🔐 هنطلب منك تسجيل دخول آمن عن طريق QR Code.\n\n"
+            "⚠️ *ملاحظة:* الحذف ممكن ياخد وقت على حسب عدد الريبوستات.\n\n"
+            "هل أنت متأكد؟",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("✅ نعم، متأكد", callback_data="confirm_delete_reposts"),
+                    InlineKeyboardButton("❌ إلغاء", callback_data="back"),
+                ],
+            ]),
+        )
+
+    elif data == "confirm_delete_reposts":
+        from services.tiktok_repost import repost_manager
+
+        await query.edit_message_text("🔄 جاري تجهيز تسجيل الدخول...")
+
+        qr_path = await repost_manager.start_login(user_id)
+
+        if not qr_path or not os.path.exists(qr_path):
+            await query.edit_message_text(
+                "❌ فشل تجهيز QR Code.\n\n"
+                "💡 حاول مرة أخرى لاحقاً."
+            )
+            return
+
+        with open(qr_path, "rb") as f:
+            await query.message.reply_photo(
+                photo=f,
+                caption=(
+                    "📱 *تسجيل دخول تيك توك*\n\n"
+                    "1️⃣ افتح تطبيق تيك توك على تليفونك\n"
+                    "2️⃣ روح لـ *البروفايل* ثم اضغط على *QR Code*\n"
+                    "3️⃣ امسح الـ QR ده\n\n"
+                    "⏳ *في انتظار تسجيل الدخول...*\n"
+                    "⏱️ عندك 3 دقايق"
+                ),
+                parse_mode="Markdown",
+            )
+
+        await query.message.reply_text("⏳ جاري التحقق من تسجيل الدخول...")
+
+        logged_in = await repost_manager.wait_login(user_id, timeout=180)
+
+        if not logged_in:
+            await query.message.reply_text(
+                "❌ *انتهت المهلة*\n\n"
+                "المستخدم لم يسجل دخول في الوقت المحدد.\n"
+                "جرب تاني وأسرع في المسح."
+            )
+            await repost_manager.cleanup(user_id)
+            return
+
+        await query.message.reply_text(
+            "✅ *تم تسجيل الدخول بنجاح!*\n\n"
+            "🔄 جاري حذف الريبوستات...\n"
+            "⏳ العملية ممكن تاخد شوية وقت."
+        )
+
+        result = await repost_manager.delete_reposts(user_id)
+
+        if result.get("success"):
+            await query.message.reply_text(
+                f"✅ *تم الانتهاء!*\n\n"
+                f"🗑️ عدد الريبوستات المحذوفة: `{result.get('deleted', 0)}`\n\n"
+                f"{SIGNATURE}"
+            )
+        else:
+            await query.message.reply_text(
+                f"❌ *فشل الحذف*\n\n"
+                f"⚠️ {result.get('error', 'خطأ غير معروف')}\n\n"
+                f"💡 جرب تاني لاحقاً."
+            )
+
+        await repost_manager.cleanup(user_id)
+
+    # =========================
     # أزرار الجودة
     # =========================
     elif data.startswith("q_"):
@@ -449,6 +532,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 🎬 *تحميل:* أرسل الرابط مباشرة
 🎵 *صوت:* /audio ثم الرابط
 ⚡ *جودة:* اختر من القائمة
+🗑️ *حذف ريبوستات:* من القائمة الرئيسية
 📊 *إحصائيات:* /stats
 🎁 *مشاركة:* /share
 ⚙️ *إعدادات:* من القائمة
