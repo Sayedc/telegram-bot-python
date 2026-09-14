@@ -1,4 +1,4 @@
-# keyboards/main_keyboard.py - بدون خطوط
+# keyboards/main_keyboard.py
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 
@@ -12,6 +12,9 @@ def main_keyboard():
         [
             InlineKeyboardButton("⚡ اختيار الجودة", callback_data="quality_menu"),
             InlineKeyboardButton("🎁 مشاركة البوت", callback_data="share_bot"),
+        ],
+        [
+            InlineKeyboardButton("🗑️ حذف ريبوستات تيك توك", callback_data="delete_reposts"),  # ✅ جديد
         ],
         [
             InlineKeyboardButton("📊 إحصائياتي", callback_data="my_stats"),
@@ -39,6 +42,9 @@ def admin_keyboard():
             InlineKeyboardButton("🎁 مشاركة البوت", callback_data="share_bot"),
         ],
         [
+            InlineKeyboardButton("🗑️ حذف ريبوستات تيك توك", callback_data="delete_reposts"),  # ✅ جديد
+        ],
+        [
             InlineKeyboardButton("📊 إحصائياتي", callback_data="my_stats"),
             InlineKeyboardButton("❓ المساعدة", callback_data="help"),
         ],
@@ -50,7 +56,7 @@ def admin_keyboard():
 
 
 def admin_panel():
-    """لوحة تحكم الأدمن - أزرار فقط"""
+    """لوحة تحكم الأدمن"""
     keyboard = [
         [
             InlineKeyboardButton("📊 إحصائيات البوت", callback_data="admin_stats"),
@@ -87,7 +93,6 @@ def admin_panel():
 
 
 def quality_keyboard():
-    """أزرار اختيار الجودة"""
     keyboard = [
         [
             InlineKeyboardButton("📱 144p", callback_data="q_144"),
@@ -110,7 +115,6 @@ def quality_keyboard():
 
 
 def settings_keyboard():
-    """أزرار الإعدادات"""
     keyboard = [
         [
             InlineKeyboardButton("📱 جودة التحميل", callback_data="settings_quality"),
@@ -128,11 +132,21 @@ def settings_keyboard():
 
 
 def confirm_keyboard():
-    """أزرار التأكيد"""
     keyboard = [
         [
             InlineKeyboardButton("✅ نعم", callback_data="confirm_yes"),
             InlineKeyboardButton("❌ لا", callback_data="confirm_no"),
+        ],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def confirm_reposts_keyboard():
+    """كيبورد تأكيد حذف الريبوستات"""
+    keyboard = [
+        [
+            InlineKeyboardButton("✅ نعم، احذف الكل", callback_data="confirm_delete_reposts"),
+            InlineKeyboardButton("❌ إلغاء", callback_data="back"),
         ],
     ]
     return InlineKeyboardMarkup(keyboard)
