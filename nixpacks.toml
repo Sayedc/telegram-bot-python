@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["python310", "ffmpeg", "xvfb", "chromium"]
+nixPkgs = ["python310", "ffmpeg", "xvfb", "xauth", "chromium"]
 
 [phases.install]
 cmds = [
