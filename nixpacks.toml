@@ -5,7 +5,9 @@ nixPkgs = ["python310", "ffmpeg"]
 cmds = [
   "pip install --upgrade pip",
   "pip install --upgrade yt-dlp yt-dlp-nightly",
-  "pip install -r requirements.txt"
+  "pip install -r requirements.txt",
+  "playwright install chromium",
+  "playwright install-deps chromium"
 ]
 
 [phases.start]
