@@ -10,6 +10,13 @@ except ImportError:
     STEALTH_AVAILABLE = False
     print("⚠️ playwright-stealth not installed")
 
+try:
+    from pyvirtualdisplay import Display
+    DISPLAY_AVAILABLE = True
+except ImportError:
+    DISPLAY_AVAILABLE = False
+    print("⚠️ pyvirtualdisplay not installed")
+
 
 class TikTokRepostManager:
     """مدير حذف الريبوستات من تيك توك باستخدام QR Login"""
@@ -18,10 +25,18 @@ class TikTokRepostManager:
         self.download_path = download_path
         os.makedirs(download_path, exist_ok=True)
         self.sessions = {}
+        self.displays = {}  # {user_id: Display}
 
     async def start_login(self, user_id: int):
         """فتح المتصفح، جلب QR، وإرجاع صورة"""
         try:
+            # ✅ تشغيل شاشة افتراضية مؤقتة
+            if DISPLAY_AVAILABLE:
+                display = Display(visible=0, size=(1280, 800))
+                display.start()
+                self.displays[user_id] = display
+                print(f"✅ Xvfb display started for user {user_id}")
+
             playwright = await async_playwright().start()
 
             browser = await playwright.chromium.launch(
@@ -48,7 +63,6 @@ class TikTokRepostManager:
 
             page = await context.new_page()
 
-            # تطبيق stealth عشان نخفي علامات الأتمتة
             if STEALTH_AVAILABLE:
                 try:
                     await stealth_async(page)
@@ -205,6 +219,15 @@ class TikTokRepostManager:
             except:
                 pass
             del self.sessions[user_id]
+
+        # ✅ إيقاف الشاشة الافتراضية
+        if user_id in self.displays:
+            try:
+                self.displays[user_id].stop()
+                print(f"✅ Xvfb display stopped for user {user_id}")
+            except:
+                pass
+            del self.displays[user_id]
 
         qr = os.path.join(self.download_path, f"tiktok_qr_{user_id}.png")
         if os.path.exists(qr):
