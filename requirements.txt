@@ -17,3 +17,5 @@ websockets==15.0.1
 
 certifi
 urllib3==2.5.0
+
+playwright
