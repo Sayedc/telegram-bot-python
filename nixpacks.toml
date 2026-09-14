@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["python310", "ffmpeg"]
+nixPkgs = ["python310", "ffmpeg", "xvfb", "chromium"]
 
 [phases.install]
 cmds = [
@@ -7,8 +7,8 @@ cmds = [
   "pip install --upgrade yt-dlp yt-dlp-nightly",
   "pip install -r requirements.txt",
   "playwright install chromium",
-  "playwright install-deps chromium"
+  "playwright install-deps chromium || true"
 ]
 
 [phases.start]
-cmd = "python main.py"
+cmd = "xvfb-run --auto-servernum --server-args='-screen 0 1280x800x24' python main.py"
