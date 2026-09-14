@@ -20,3 +20,4 @@ urllib3==2.5.0
 
 playwright
 playwright-stealth
+pyvirtualdisplay
