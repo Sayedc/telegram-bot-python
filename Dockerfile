@@ -28,6 +28,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 RUN pip install --no-cache-dir -U "yt-dlp[default]"
 
+# ✅ تثبيت Playwright + Chromium
+RUN playwright install chromium
+RUN playwright install-deps chromium
+
 COPY . .
 
 RUN mkdir -p /app/downloads
