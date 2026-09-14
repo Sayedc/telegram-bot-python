@@ -3,6 +3,13 @@ import os
 import asyncio
 from playwright.async_api import async_playwright
 
+try:
+    from playwright_stealth import stealth_async
+    STEALTH_AVAILABLE = True
+except ImportError:
+    STEALTH_AVAILABLE = False
+    print("⚠️ playwright-stealth not installed")
+
 
 class TikTokRepostManager:
     """مدير حذف الريبوستات من تيك توك باستخدام QR Login"""
@@ -10,7 +17,7 @@ class TikTokRepostManager:
     def __init__(self, download_path="downloads"):
         self.download_path = download_path
         os.makedirs(download_path, exist_ok=True)
-        self.sessions = {}  # {user_id: {playwright, browser, context, page}}
+        self.sessions = {}
 
     async def start_login(self, user_id: int):
         """فتح المتصفح، جلب QR، وإرجاع صورة"""
@@ -18,11 +25,13 @@ class TikTokRepostManager:
             playwright = await async_playwright().start()
 
             browser = await playwright.chromium.launch(
-                headless=True,
+                headless=False,
                 args=[
                     "--no-sandbox",
                     "--disable-dev-shm-usage",
                     "--disable-blink-features=AutomationControlled",
+                    "--disable-features=IsolateOrigins,site-per-process",
+                    "--window-size=1280,800",
                 ],
             )
 
@@ -33,26 +42,34 @@ class TikTokRepostManager:
                     "AppleWebKit/537.36 (KHTML, like Gecko) "
                     "Chrome/120.0.0.0 Safari/537.36"
                 ),
+                locale="en-US",
+                timezone_id="America/New_York",
             )
 
             page = await context.new_page()
 
+            # تطبيق stealth عشان نخفي علامات الأتمتة
+            if STEALTH_AVAILABLE:
+                try:
+                    await stealth_async(page)
+                    print("✅ Stealth applied")
+                except Exception as e:
+                    print(f"⚠️ Stealth error: {e}")
+
             await page.goto(
                 "https://www.tiktok.com/login/qrcode",
-                wait_until="networkidle",
+                wait_until="domcontentloaded",
                 timeout=60000,
             )
 
-            await asyncio.sleep(5)
+            await asyncio.sleep(6)
 
-            # محاولة الضغط على "Use QR code" لو الصفحة طلبت
             try:
                 await page.click("text=Use QR code", timeout=5000)
                 await asyncio.sleep(3)
             except:
                 pass
 
-            # أخذ لقطة شاشة للـ QR
             qr_path = os.path.join(self.download_path, f"tiktok_qr_{user_id}.png")
 
             qr_element = await page.query_selector(
@@ -92,7 +109,6 @@ class TikTokRepostManager:
             try:
                 url = page.url
 
-                # لو اتغير الرابط عن صفحة تسجيل الدخول
                 if "/login" not in url and "tiktok.com" in url:
                     avatar = await page.query_selector(
                         "[data-e2e='profile-icon'], "
@@ -120,24 +136,21 @@ class TikTokRepostManager:
         try:
             await page.goto(
                 "https://www.tiktok.com/reposts",
-                wait_until="networkidle",
+                wait_until="domcontentloaded",
                 timeout=60000,
             )
 
-            await asyncio.sleep(5)
+            await asyncio.sleep(6)
 
             deleted = 0
 
-            # 30 جولة كحد أقصى (سلامة)
             for _ in range(30):
-                # البحث عن أزرار "إلغاء الريبوست"
                 buttons = await page.query_selector_all(
                     "[data-e2e='repost-unrepost-btn'], "
                     "[data-e2e='repost-btn']"
                 )
 
                 if not buttons:
-                    # نزول لأسفل لتحميل المزيد
                     await page.evaluate(
                         "window.scrollTo(0, document.body.scrollHeight)"
                     )
@@ -151,13 +164,11 @@ class TikTokRepostManager:
                     if not buttons:
                         break
 
-                # معالجة 5 أزرار في المرة
                 for btn in buttons[:5]:
                     try:
                         await btn.click()
                         await asyncio.sleep(1.5)
 
-                        # زر التأكيد
                         confirm = await page.query_selector(
                             "button:has-text('Remove'), "
                             "button:has-text('إزالة'), "
@@ -168,15 +179,12 @@ class TikTokRepostManager:
                             await confirm.click()
 
                         deleted += 1
-
-                        # تأخير بين الحذف والتاني (عشان الحساب مياخدش بان)
                         await asyncio.sleep(4)
 
                     except Exception as e:
                         print(f"⚠️ Delete one error: {e}")
                         continue
 
-                # نزول لتحميل المزيد
                 await page.evaluate(
                     "window.scrollTo(0, document.body.scrollHeight)"
                 )
@@ -206,5 +214,4 @@ class TikTokRepostManager:
                 pass
 
 
-# Singleton
 repost_manager = TikTokRepostManager()
