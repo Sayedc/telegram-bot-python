@@ -6,7 +6,6 @@ ENV PIP_NO_CACHE_DIR=1
 ENV PATH="/usr/bin:${PATH}"
 ENV YTDLP_JS_RUNTIMES=node
 
-# تثبيت FFmpeg + الأدوات الأساسية + xvfb + xauth
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     git \
@@ -31,7 +30,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 RUN pip install --no-cache-dir -U "yt-dlp[default]"
 
-# ✅ تثبيت Playwright + Chromium + deps
 RUN playwright install chromium
 RUN playwright install-deps chromium || true
 
@@ -39,5 +37,5 @@ COPY . .
 
 RUN mkdir -p /app/downloads
 
-# ✅ تشغيل البوت مع شاشة افتراضية (xvfb)
-CMD ["xvfb-run", "--auto-servernum", "--server-args=-screen 0 1280x800x24", "python", "main.py"]
+# ✅ رجعنا التشغيل العادي (بدون xvfb-run)
+CMD ["python", "main.py"]
