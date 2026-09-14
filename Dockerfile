@@ -6,7 +6,7 @@ ENV PIP_NO_CACHE_DIR=1
 ENV PATH="/usr/bin:${PATH}"
 ENV YTDLP_JS_RUNTIMES=node
 
-# تثبيت FFmpeg + الأدوات الأساسية + xvfb
+# تثبيت FFmpeg + الأدوات الأساسية + xvfb + xauth
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     git \
@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     nodejs \
     npm \
     xvfb \
+    xauth \
     && npm install -g bun \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
