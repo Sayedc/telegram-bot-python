@@ -1,3 +1,4 @@
+```python
 # services/youtube.py
 # YouTube Downloader - Railway Ready
 #
@@ -293,11 +294,8 @@ def _base_options():
             "youtube": {
                 "player_client": [
                     "android_vr",
-                    "tv",
-                    "ios",
                     "web_safari",
                 ],
-                "player_skip": [],
             }
         },
 
@@ -643,3 +641,4 @@ async def download_youtube(
             "error": friendly_error,
 
 }
+```
