@@ -1,15 +1,5 @@
 # services/youtube.py
 # YouTube Downloader - Railway Ready
-#
-# Supports:
-# - cookies_youtube.txt
-# - cookies.txt
-# - YOUTUBE_COOKIES environment variable
-# - optional PROXY
-# - YouTube client fallback
-# - MP4 / MP3
-# - Railway / Docker
-
 
 import os
 import glob
@@ -44,7 +34,7 @@ def _create_cookie_file_from_env():
     the YOUTUBE_COOKIES environment variable.
 
     IMPORTANT:
-    Never print the cookie content to logs.
+    Never print cookie content to logs.
     """
 
     cookies = os.getenv(COOKIE_ENV_NAME)
@@ -58,7 +48,6 @@ def _create_cookie_file_from_env():
         return None
 
     try:
-        # Basic validation
         if (
             "# Netscape HTTP Cookie File" not in cookies
             and "# HTTP Cookie File" not in cookies
@@ -70,7 +59,7 @@ def _create_cookie_file_from_env():
 
         cookie_path = os.path.join(
             tempfile.gettempdir(),
-            "youtube_cookies.txt"
+            "youtube_cookies.txt",
         )
 
         with open(
@@ -112,8 +101,9 @@ def _get_cookie_file():
 
     env_cookie_file = _create_cookie_file_from_env()
 
-    if env_cookie_file and os.path.exists(
+    if (
         env_cookie_file
+        and os.path.exists(env_cookie_file)
     ):
         return env_cookie_file
 
@@ -126,7 +116,6 @@ def _get_cookie_file():
         if os.path.isfile(path):
 
             try:
-
                 size = os.path.getsize(path)
 
                 if size <= 0:
@@ -153,6 +142,12 @@ def _get_cookie_file():
 # =========================================================
 
 def _video_format(quality: str):
+    """
+    Select the requested video quality.
+
+    Example:
+    720 -> up to 720p
+    """
 
     return (
         f"bestvideo[height<={quality}]"
@@ -200,7 +195,7 @@ def _base_options():
 
         "outtmpl": os.path.join(
             DOWNLOADS_PATH,
-            "%(title).150s.%(ext)s"
+            "%(title).150s.%(ext)s",
         ),
 
         # -------------------------------------------------
@@ -241,8 +236,6 @@ def _base_options():
 
         "extract_flat": False,
 
-        # Do not force live_from_start for normal videos.
-        # It can cause unnecessary behavior on some videos.
         "live_from_start": False,
 
         # -------------------------------------------------
@@ -261,32 +254,35 @@ def _base_options():
 
         "http_headers": {
 
-            "User-Agent":
+            "User-Agent": (
                 "Mozilla/5.0 "
                 "(Windows NT 10.0; Win64; x64) "
                 "AppleWebKit/537.36 "
                 "(KHTML, like Gecko) "
                 "Chrome/140.0.0.0 "
-                "Safari/537.36",
+                "Safari/537.36"
+            ),
 
-            "Accept":
+            "Accept": (
                 "text/html,"
                 "application/xhtml+xml,"
                 "application/xml;q=0.9,"
                 "image/avif,"
                 "image/webp,"
-                "*/*;q=0.8",
+                "*/*;q=0.8"
+            ),
 
-            "Accept-Language":
-                "en-US,en;q=0.9",
-
+            "Accept-Language": (
+                "en-US,en;q=0.9"
+            ),
         },
 
         # -------------------------------------------------
         # YouTube clients
         #
-        # We intentionally don't force only one client.
-        # yt-dlp can choose available formats/clients.
+        # Don't force a single client.
+        # These clients currently avoid some PO-token
+        # requirements for applicable public videos.
         # -------------------------------------------------
 
         "extractor_args": {
@@ -304,9 +300,8 @@ def _base_options():
 
         "cachedir": os.path.join(
             DOWNLOADS_PATH,
-            ".yt-dlp-cache"
+            ".yt-dlp-cache",
         ),
-
     }
 
     # =====================================================
@@ -402,6 +397,8 @@ def _is_youtube_bot_error(error_text: str):
         "confirm you’re not a bot",
         "use --cookies-from-browser",
         "use --cookies",
+        "http error 403",
+        "403 forbidden",
     ]
 
     return any(
@@ -419,10 +416,12 @@ def _friendly_youtube_error(error_text: str):
     if _is_youtube_bot_error(error_text):
 
         return (
-            "⚠️ YouTube رفض الطلب مؤقتًا لأنه اعتبر "
-            "السيرفر طلبًا آليًا.\n\n"
-            "🍪 يلزم إعداد YouTube Cookies صحيحة "
-            "للسيرفر أو استخدام إعداد PO Token عند الحاجة."
+            "⚠️ YouTube رفض الطلب من السيرفر.\n\n"
+            "قد يكون السبب حماية YouTube ضد الطلبات الآلية "
+            "أو HTTP 403.\n\n"
+            "🍪 تأكد من إعداد YouTube Cookies صحيحة "
+            "للسيرفر، وإذا استمر الخطأ قد نحتاج "
+            "إعداد PO Token."
         )
 
     return error_text
@@ -437,7 +436,6 @@ async def download_youtube(
     quality: str = "720",
     audio: bool = False,
 ):
-
     """
     Professional YouTube Downloader.
 
@@ -452,7 +450,7 @@ async def download_youtube(
 
     os.makedirs(
         DOWNLOADS_PATH,
-        exist_ok=True
+        exist_ok=True,
     )
 
     # -----------------------------------------------------
@@ -505,7 +503,7 @@ async def download_youtube(
 
             info = ydl.extract_info(
                 url,
-                download=True
+                download=True,
             )
 
             if not info:
@@ -572,19 +570,18 @@ async def download_youtube(
             # -------------------------------------------------
 
             return {
-
                 "success": True,
 
                 "file_path": file_path,
 
                 "title": info.get(
                     "title",
-                    "YouTube Video"
+                    "YouTube Video",
                 ),
 
                 "duration": info.get(
                     "duration",
-                    0
+                    0,
                 ),
 
                 "platform": "YouTube",
@@ -593,22 +590,20 @@ async def download_youtube(
 
                 "uploader": info.get(
                     "uploader",
-                    ""
+                    "",
                 ),
 
                 "thumbnail": info.get(
                     "thumbnail",
-                    ""
+                    "",
                 ),
 
                 "view_count": info.get(
                     "view_count",
-                    0
+                    0,
                 ),
 
-                "file_size_mb":
-                    file_size_mb,
-
+                "file_size_mb": file_size_mb,
             }
 
     except Exception as e:
@@ -624,20 +619,14 @@ async def download_youtube(
         )
 
         # -----------------------------------------------------
-        # Bot detection
+        # Friendly error
         # -----------------------------------------------------
 
-        friendly_error = (
-            _friendly_youtube_error(
-                error_text
-            )
+        friendly_error = _friendly_youtube_error(
+            error_text
         )
 
         return {
-
             "success": False,
-
             "error": friendly_error,
-
-}
-```
+        }
