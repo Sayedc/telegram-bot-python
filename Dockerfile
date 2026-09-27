@@ -12,11 +12,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     wget \
     ca-certificates \
-    nodejs \
-    npm \
     xvfb \
     xauth \
+    gnupg \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends \
+    nodejs \
+    npm \
     && npm install -g bun \
+    && node --version \
+    && npm --version \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -37,5 +42,5 @@ COPY . .
 
 RUN mkdir -p /app/downloads
 
-# ✅ رجعنا التشغيل العادي (بدون xvfb-run)
+# ✅ التشغيل العادي
 CMD ["python", "main.py"]
