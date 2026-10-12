@@ -18,7 +18,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends \
     nodejs \
-    npm \
     && npm install -g bun \
     && node --version \
     && npm --version \
