@@ -24,35 +24,48 @@ def get_video_info(url: str):
 
 
 def extract_link(text: str):
-    """Extract links; repair spaces accidentally inserted inside TikTok photo IDs."""
+    """Extract TikTok Photo Mode URLs before other links."""
     if not text:
         return None
-    # Prioritize Photo Mode URLs because a copied ID may contain an accidental space.
+
+    text = text.strip()
+
+    # Prefer a complete TikTok Photo Mode URL.
     photo = re.search(
-        r"https?://(?:www\.)?tiktok\.com/@[^/\s]+/photo/[0-9][0-9 \t]*(?:\?[^\s]*)?",
-        text, re.IGNORECASE,
+        r"https?://(?:www\.)?tiktok\.com/@[^/\s]+/photo/[0-9]+"
+        r"(?:\?[^\s]*)?",
+        text,
+        re.IGNORECASE,
     )
     if photo:
-        url = photo.group(0).rstrip(".,;!)]}>")
-        url = re.sub(r"(?<=/photo/)[0-9][0-9 \t]*", lambda m: re.sub(r"\s+", "", m.group(0)), url, count=1)
-        return url
+        return photo.group(0).rstrip(".,;!)]}>")
+
+    # TikTok short links must be preserved as short links.
+    short_link = re.search(
+        r"https?://(?:vt|vm)\.tiktok\.com/[^\s]+",
+        text,
+        re.IGNORECASE,
+    )
+    if short_link:
+        return short_link.group(0).rstrip(".,;!)]}>")
 
     patterns = [
-        r"(https?://(?:www\.)?tiktok\.com/[^\s]+)",
-        r"(https?://vt\.tiktok\.com/[^\s]+)",
-        r"(https?://(?:www\.)?youtube\.com/watch\?v=[^\s]+)",
-        r"(https?://youtu\.be/[^\s]+)",
-        r"(https?://(?:www\.)?instagram\.com/[^\s]+)",
-        r"(https?://(?:www\.)?facebook\.com/[^\s]+)",
-        r"(https?://fb\.watch/[^\s]+)",
-        r"(https?://(?:www\.)?x\.com/[^\s]+)",
-        r"(https?://(?:www\.)?twitter\.com/[^\s]+)",
-        r"(https?://[^\s]+)",
+        r"https?://(?:www\.)?tiktok\.com/[^\s]+",
+        r"https?://(?:www\.)?youtube\.com/watch\?[^\s]+",
+        r"https?://youtu\.be/[^\s]+",
+        r"https?://(?:www\.)?instagram\.com/[^\s]+",
+        r"https?://(?:www\.)?facebook\.com/[^\s]+",
+        r"https?://fb\.watch/[^\s]+",
+        r"https?://(?:www\.)?x\.com/[^\s]+",
+        r"https?://(?:www\.)?twitter\.com/[^\s]+",
+        r"https?://[^\s]+",
     ]
+
     for pattern in patterns:
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
-            return match.group(1).rstrip(".,;!)]}>")
+            return match.group(0).rstrip(".,;!)]}>")
+
     return None
 
 
