@@ -1,5 +1,6 @@
 python-telegram-bot==22.3
 yt-dlp
+gallery-dl
 
 aiofiles==24.1.0
 pillow==11.3.0
