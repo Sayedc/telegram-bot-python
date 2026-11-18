@@ -28,7 +28,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # 📌 save user
-    add_user(u.id, u.username)
+    add_user(u.id, u.username or u.first_name or "Unknown")
     update_last_seen(u.id)
 
     # ==========================
