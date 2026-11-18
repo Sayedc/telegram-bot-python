@@ -1,2 +1,3 @@
-from .db import init_db, get_connection
-from .user_repository import *
+# The bot stores users in a JSON file (see user_repository.py).
+# database/db.py (SQLite) is not used.
+from .user_repository import *  # noqa: F401,F403
