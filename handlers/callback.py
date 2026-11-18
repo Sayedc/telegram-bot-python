@@ -1,6 +1,7 @@
 # handlers/callback.py
+import io
 import os
-import shutil
+import sys
 from datetime import datetime
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -22,15 +23,32 @@ from database.user_repository import (
     load_data,
     save_data,
     get_admin_stats,
+    DB_FILE,
 )
-from config import ADMIN_IDS, SIGNATURE
+from config import ADMIN_IDS, SIGNATURE, DOWNLOADS_PATH
+from services.common import cleanup_stale
 from core import metrics, get_uptime
 from utils.constants import SUCCESS_TEXTS, ERROR_TEXTS
 from handlers.settings import set_user_quality
 
 
+# SIGNATURE contains '_' (@TheAlhawy_Bot): escape it wherever parse_mode=Markdown is used.
+SIGNATURE_MD = escape_markdown(SIGNATURE)
+
+
 def is_admin(user_id: int):
     return user_id in ADMIN_IDS
+
+
+def _restart_process():
+    """Restart the bot in place (works on any host, unlike exit code 0 which
+    Railway/Docker restart policies treat as a normal shutdown)."""
+    try:
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+    except Exception:  # noqa: BLE001
+        os._exit(1)
 
 
 async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -93,7 +111,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 🎵 صوت: `{stats.get('audio', 0)}`
 📅 عدد الزيارات: `{stats.get('visits', 0)}`
 ━━━━━━━━━━━━━━━━━━━
-✨ {SIGNATURE} ✨
+✨ {SIGNATURE_MD} ✨
 """
         await query.edit_message_text(text, parse_mode="Markdown")
 
@@ -138,14 +156,13 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 • تاريخ الانضمام
 • عدد التحميلات
 
-📅 *مدة الحفظ:* 30 يوم
-🗑️ *مسح البيانات:* /delete_my_data
+🗑️ *مسح البيانات:* من الإعدادات ← مسح بياناتي
 
-🔐 *الأمان:* بياناتك آمنة ومشفرة
+📎 الروابط اللي بتبعتها بتتعالج على السيرفر لتنزيل الملف فقط، والملفات بتتمسح بعد الإرسال.
 
-✨ {SIGNATURE} ✨
+✨ {SIGNATURE_MD} ✨
 """
-        await query.edit_message_text(text)
+        await query.edit_message_text(text, parse_mode="Markdown")
 
     # =========================
     # تأكيدات
@@ -160,7 +177,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif data == "confirm_no":
         await query.edit_message_text(
-            f"✅ *تم إلغاء العملية*\n\n✨ {SIGNATURE} ✨",
+            f"✅ *تم إلغاء العملية*\n\n✨ {SIGNATURE_MD} ✨",
             parse_mode="Markdown",
         )
 
@@ -269,18 +286,17 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         users = get_all_users()
 
-        with open("users.txt", "w", encoding="utf-8") as f:
-            for uid, info in users.items():
-                f.write(
-                    f"{uid} | {info.get('name')} | {info.get('downloads', 0)}\n"
-                )
+        lines = [
+            f"{uid} | {info.get('name')} | {info.get('downloads', 0)}"
+            for uid, info in users.items()
+        ]
+        payload = io.BytesIO(("\n".join(lines) or "no users").encode("utf-8"))
 
         await query.message.reply_document(
-            document=open("users.txt", "rb"),
-            caption="👥 قائمة المستخدمين"
+            document=payload,
+            filename="users.txt",
+            caption="👥 قائمة المستخدمين",
         )
-
-        os.remove("users.txt")
 
     elif data == "admin_block":
         if not is_admin(user_id):
@@ -308,35 +324,39 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_admin(user_id):
             return
 
-        count = 0
-
-        for file in os.listdir("downloads"):
-            path = os.path.join("downloads", file)
-
-            try:
-                if os.path.isfile(path):
-                    os.remove(path)
-                else:
-                    shutil.rmtree(path)
-                count += 1
-            except Exception:
-                pass
+        # Entries younger than 10 minutes may belong to a download in progress.
+        count = cleanup_stale(DOWNLOADS_PATH, max_age=600)
 
         await query.edit_message_text(
-            f"🗑️ تم حذف {count} ملف من الكاش."
+            f"🗑️ تم حذف {count} عنصر من الكاش (الأقدم من 10 دقايق)."
         )
 
     elif data == "admin_delete_all":
         if not is_admin(user_id):
             return
 
+        await query.edit_message_text(
+            "⚠️ *تحذير*\n\nده هيمسح *كل المستخدمين* من قاعدة البيانات ومفيش رجوع.\n"
+            "خد نسخة احتياطية الأول لو محتاج.\n\nمتأكد؟",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("✅ نعم، احذف الكل", callback_data="admin_delete_all_yes"),
+                    InlineKeyboardButton("❌ إلغاء", callback_data="admin_panel"),
+                ],
+            ]),
+        )
+
+    elif data == "admin_delete_all_yes":
+        if not is_admin(user_id):
+            return
+
         data_db = load_data()
         admin = data_db["users"].get(str(user_id))
 
-        data_db["users"] = {
-            str(user_id): admin
-        }
-        data_db["total"] = 1
+        # Keep the admin's own record only if it exists (it used to store None).
+        data_db["users"] = {str(user_id): admin} if admin else {}
+        data_db["total"] = len(data_db["users"])
         save_data(data_db)
 
         await query.edit_message_text(
@@ -355,15 +375,19 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_admin(user_id):
             return
 
+        if not os.path.exists(DB_FILE):
+            await query.edit_message_text("❌ مفيش قاعدة بيانات لسه.")
+            return
+
         backup = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        shutil.copy("database.json", backup)
 
-        await query.message.reply_document(
-            open(backup, "rb"),
-            caption="📦 Database Backup"
-        )
+        with open(DB_FILE, "rb") as src:
+            await query.message.reply_document(
+                document=src,
+                filename=backup,
+                caption="📦 Database Backup",
+            )
 
-        os.remove(backup)
         await query.edit_message_text("✅ تم إرسال النسخة الاحتياطية")
 
     elif data == "admin_metrics":
@@ -400,23 +424,24 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_admin(user_id):
             return
 
-        if not os.path.exists("logs/errors.log"):
+        log_file = os.path.join("logs", "errors.log")
+
+        if not os.path.exists(log_file):
             await query.edit_message_text("لا يوجد سجل أخطاء.")
             return
 
-        with open("logs/errors.log", "r", encoding="utf8") as f:
+        with open(log_file, "r", encoding="utf8", errors="replace") as f:
             logs = f.readlines()[-10:]
 
-        await query.edit_message_text(
-            "آخر الأخطاء:\n\n" + "".join(logs)
-        )
+        text = "".join(logs)[-3500:] or "السجل فاضي."
+        await query.edit_message_text("آخر الأخطاء:\n\n" + text)
 
     elif data == "admin_restart":
         if not is_admin(user_id):
             return
 
-        await query.edit_message_text("🔄 *جاري إعادة تشغيل البوت...*\n\n⏳ سيستغرق بضع ثوانٍ")
-        os._exit(0)
+        await query.edit_message_text("🔄 جاري إعادة تشغيل البوت...\n\n⏳ سيستغرق بضع ثوانٍ")
+        _restart_process()
 
     # =========================
     # حذف ريبوستات تيك توك (جديد)
@@ -425,7 +450,8 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(
             "⚠️ *حذف ريبوستات تيك توك*\n\n"
             "🗑️ هذه الميزة ستحذف *كل الريبوستات* من حسابك.\n\n"
-            "🔐 هنطلب منك تسجيل دخول آمن عن طريق QR Code.\n\n"
+            "🔐 هنطلب منك تسجيل دخول عن طريق QR Code.\n"
+            "⚠️ التسجيل بيتم على سيرفر البوت بشكل مؤقت لتنفيذ الحذف، والجلسة بتتقفل أول ما العملية تخلص.\n\n"
             "⚠️ *ملاحظة:* الحذف ممكن ياخد وقت على حسب عدد الريبوستات.\n\n"
             "هل أنت متأكد؟",
             parse_mode="Markdown",
@@ -440,66 +466,79 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "confirm_delete_reposts":
         from services.tiktok_repost import repost_manager
 
-        await query.edit_message_text("🔄 جاري تجهيز تسجيل الدخول...")
-
-        qr_path = await repost_manager.start_login(user_id)
-
-        if not qr_path or not os.path.exists(qr_path):
-            await query.edit_message_text(
-                "❌ فشل تجهيز QR Code.\n\n"
-                "💡 حاول مرة أخرى لاحقاً."
-            )
+        # A double tap used to start two browsers and leak the first one.
+        if context.user_data.get("repost_busy"):
+            await query.message.reply_text("⏳ في عملية جارية بالفعل على حسابك. استنى تخلص.")
             return
 
-        with open(qr_path, "rb") as f:
-            await query.message.reply_photo(
-                photo=f,
-                caption=(
-                    "📱 *تسجيل دخول تيك توك*\n\n"
-                    "1️⃣ افتح تطبيق تيك توك على تليفونك\n"
-                    "2️⃣ روح لـ *البروفايل* ثم اضغط على *QR Code*\n"
-                    "3️⃣ امسح الـ QR ده\n\n"
-                    "⏳ *في انتظار تسجيل الدخول...*\n"
-                    "⏱️ عندك 3 دقايق"
-                ),
+        context.user_data["repost_busy"] = True
+
+        try:
+            await query.edit_message_text("🔄 جاري تجهيز تسجيل الدخول...")
+
+            qr_path = await repost_manager.start_login(user_id)
+
+            if not qr_path or not os.path.exists(qr_path):
+                await query.edit_message_text(
+                    "❌ فشل تجهيز QR Code.\n\n"
+                    "💡 حاول مرة أخرى لاحقاً."
+                )
+                return
+
+            with open(qr_path, "rb") as f:
+                await query.message.reply_photo(
+                    photo=f,
+                    caption=(
+                        "📱 *تسجيل دخول تيك توك*\n\n"
+                        "1️⃣ افتح تطبيق تيك توك على تليفونك\n"
+                        "2️⃣ روح لـ *البروفايل* ثم اضغط على *QR Code*\n"
+                        "3️⃣ امسح الـ QR ده\n\n"
+                        "⏳ *في انتظار تسجيل الدخول...*\n"
+                        "⏱️ عندك 3 دقايق"
+                    ),
+                    parse_mode="Markdown",
+                )
+
+            await query.message.reply_text("⏳ جاري التحقق من تسجيل الدخول...")
+
+            logged_in = await repost_manager.wait_login(user_id, timeout=180)
+
+            if not logged_in:
+                await query.message.reply_text(
+                    "❌ *انتهت المهلة*\n\n"
+                    "المستخدم لم يسجل دخول في الوقت المحدد.\n"
+                    "جرب تاني وأسرع في المسح.",
+                    parse_mode="Markdown",
+                )
+                return
+
+            await query.message.reply_text(
+                "✅ *تم تسجيل الدخول بنجاح!*\n\n"
+                "🔄 جاري حذف الريبوستات...\n"
+                "⏳ العملية ممكن تاخد شوية وقت.",
                 parse_mode="Markdown",
             )
 
-        await query.message.reply_text("⏳ جاري التحقق من تسجيل الدخول...")
+            result = await repost_manager.delete_reposts(user_id)
 
-        logged_in = await repost_manager.wait_login(user_id, timeout=180)
+            if result.get("success"):
+                await query.message.reply_text(
+                    f"✅ *تم الانتهاء!*\n\n"
+                    f"🗑️ عدد الريبوستات المحذوفة: `{result.get('deleted', 0)}`\n\n"
+                    f"{SIGNATURE_MD}",
+                    parse_mode="Markdown",
+                )
+            else:
+                await query.message.reply_text(
+                    f"❌ فشل الحذف\n\n"
+                    f"⚠️ {result.get('error', 'خطأ غير معروف')}\n\n"
+                    f"💡 جرب تاني لاحقاً."
+                )
 
-        if not logged_in:
-            await query.message.reply_text(
-                "❌ *انتهت المهلة*\n\n"
-                "المستخدم لم يسجل دخول في الوقت المحدد.\n"
-                "جرب تاني وأسرع في المسح."
-            )
+        finally:
+            # Always close the browser + virtual display, even after an error.
+            context.user_data.pop("repost_busy", None)
             await repost_manager.cleanup(user_id)
-            return
-
-        await query.message.reply_text(
-            "✅ *تم تسجيل الدخول بنجاح!*\n\n"
-            "🔄 جاري حذف الريبوستات...\n"
-            "⏳ العملية ممكن تاخد شوية وقت."
-        )
-
-        result = await repost_manager.delete_reposts(user_id)
-
-        if result.get("success"):
-            await query.message.reply_text(
-                f"✅ *تم الانتهاء!*\n\n"
-                f"🗑️ عدد الريبوستات المحذوفة: `{result.get('deleted', 0)}`\n\n"
-                f"{SIGNATURE}"
-            )
-        else:
-            await query.message.reply_text(
-                f"❌ *فشل الحذف*\n\n"
-                f"⚠️ {result.get('error', 'خطأ غير معروف')}\n\n"
-                f"💡 جرب تاني لاحقاً."
-            )
-
-        await repost_manager.cleanup(user_id)
 
     # =========================
     # أزرار الجودة
@@ -530,16 +569,15 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 📌 *المساعدة* 📌
 ━━━━━━━━━━━━━━━━━━━
 🎬 *تحميل:* أرسل الرابط مباشرة
-🎵 *صوت:* /audio ثم الرابط
+🎵 *صوت:* اضغط "استخراج صوت" من القائمة ثم أرسل الرابط
 ⚡ *جودة:* اختر من القائمة
 🗑️ *حذف ريبوستات:* من القائمة الرئيسية
-📊 *إحصائيات:* /stats
-🎁 *مشاركة:* /share
-⚙️ *إعدادات:* من القائمة
-🔒 *خصوصية:* /privacy
-🗑️ *مسح بياناتي:* /delete_my_data
+📊 *إحصائياتك:* من القائمة الرئيسية
+🎁 *مشاركة:* من القائمة الرئيسية
+⚙️ *إعدادات ومسح البيانات:* من القائمة
+🔒 *خصوصية:* من الإعدادات
 
-🌍 *البوت بينزل أي حاجة من أي موقع*
+🌍 *البوت بينزل من معظم المواقع*
 
 ✨ 𝓐𝓵𝓱𝓪𝔀𝔂 ✨
 """
