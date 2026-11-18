@@ -1,3 +1,7 @@
+import ipaddress
+import socket
+from urllib.parse import urlsplit
+
 from database.user_repository import load_data, save_data, is_blocked as db_is_blocked
 
 _failed_attempts = {}
@@ -9,15 +13,56 @@ def is_blocked(user_id):
 
 
 def is_safe_url(url):
+    """
+    Accept only public http(s) URLs.
+
+    The bot downloads whatever URL a user sends, from the server itself, so
+    URLs that point at the server's own network (localhost, 10.x, 192.168.x,
+    169.254.169.254 cloud-metadata, ...) must be refused. This does a DNS
+    lookup, so call it from a thread (asyncio.to_thread) inside async code.
+    """
     if not url:
         return False, "Empty URL"
 
-    url = url.lower()
+    try:
+        parts = urlsplit(url.strip())
+        port = parts.port
+    except ValueError:
+        return False, "Invalid URL"
 
-    if url.startswith(("http://", "https://")):
-        return True, "OK"
+    scheme = (parts.scheme or "").lower()
+    host = parts.hostname
 
-    return False, "Invalid URL"
+    if scheme not in ("http", "https") or not host:
+        return False, "Invalid URL"
+
+    if parts.username or parts.password:
+        return False, "Credentials in URL are not allowed"
+
+    try:
+        infos = socket.getaddrinfo(
+            host, port or (443 if scheme == "https" else 80),
+            proto=socket.IPPROTO_TCP,
+        )
+    except (socket.gaierror, UnicodeError):
+        return False, "Unknown host"
+
+    for info in infos:
+        try:
+            ip = ipaddress.ip_address(info[4][0].split("%")[0])
+        except ValueError:
+            return False, "Invalid address"
+
+        if ip.version == 6 and ip.ipv4_mapped:
+            ip = ip.ipv4_mapped
+
+        if (
+            ip.is_private or ip.is_loopback or ip.is_link_local
+            or ip.is_reserved or ip.is_multicast or ip.is_unspecified
+        ):
+            return False, "Private address not allowed"
+
+    return True, "OK"
 
 
 def record_failed_attempt(user_id):
