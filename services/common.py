@@ -23,6 +23,7 @@ import time
 import yt_dlp
 
 from config import BASE_DIR, DOWNLOADS_PATH, MAX_VIDEO_SIZE
+from utils.texts import DOWNLOAD_ERRORS
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 
@@ -295,24 +296,8 @@ def audio_selection():
 # Error classification
 # =========================================================
 
-ERROR_MESSAGES_AR = {
-    "COOKIES_REQUIRED": "🍪 المنصة طلبت تسجيل دخول أو شكّت في السيرفر. جرب بعد شوية.",
-    "AGE_RESTRICTED": "🔞 الفيديو ده مقيّد بالعمر ومينفعش تحميله.",
-    "PRIVATE_VIDEO": "🔒 الفيديو خاص. ابعت رابط فيديو عام.",
-    "VIDEO_UNAVAILABLE": "🚫 الفيديو مش متاح أو اتحذف أو محجوب في بلد السيرفر.",
-    "RATE_LIMIT": "⏳ المنصة محدّدة عدد الطلبات. استنى شوية وجرب تاني.",
-    "IP_BLOCKED": "🌐 المنصة رفضت الطلب من السيرفر (403). جرب بعد شوية.",
-    "INVALID_URL": "❌ الرابط غير صحيح أو الموقع ده مش مدعوم.",
-    "EXTRACTOR_BROKEN": "🛠️ المنصة غيّرت حاجة عندها ومحتاجين نحدّث البوت. جرب بعد شوية.",
-    "FFMPEG_MISSING": "🎬 في مشكلة في السيرفر (FFmpeg). بلّغ الأدمن.",
-    "LIVE": "🔴 البث المباشر مش مدعوم. جرب بعد ما ينتهي.",
-    "TOO_LARGE": "📦 الملف كبير جداً على التحميل. جرب جودة أقل.",
-    "TIMEOUT": "⌛ التحميل أخد وقت أطول من اللازم. جرب جودة أقل أو رابط تاني.",
-    "NO_FORMATS": "😕 مقدرتش أجيب صيغة تحميل للفيديو ده. جرب جودة تانية أو رابط تاني.",
-    "NO_VIDEO": "🖼️ المنشور ده مفيهوش فيديو (صور بس).",
-    "FILE_NOT_FOUND": "📁 التحميل خلص لكن الملف مش موجود. جرب تاني.",
-    "DOWNLOAD_ERROR": "❌ فشل التحميل. جرب رابط تاني أو حاول بعد شوية.",
-}
+# Messages live in utils/texts.py (single place for all wording).
+ERROR_MESSAGES_AR = DOWNLOAD_ERRORS
 
 # Order matters: the first rule that matches wins.
 _ERROR_RULES = [
