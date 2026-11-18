@@ -1,39 +1,75 @@
 # database/user_repository.py
 import json
 import os
+import threading
+import time
 from datetime import datetime
 
-DB_FILE = "database.json"
+# On Railway/Docker the container filesystem is wiped on every deploy.
+# Point DATABASE_PATH at a mounted volume (e.g. /data/database.json) to keep users.
+DB_FILE = os.getenv("DATABASE_PATH", "database.json")
+
+_lock = threading.RLock()
 
 
 # =========================
 # INIT DATABASE
 # =========================
-def init_db():
-    if not os.path.exists(DB_FILE):
-        data = {
-            "users": {},
-            "total": 0,
-            "daily": 0,
-            "last_date": str(datetime.now().date())
-        }
+def _empty_db():
+    return {
+        "users": {},
+        "total": 0,
+        "daily": 0,
+        "last_date": str(datetime.now().date())
+    }
 
-        with open(DB_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4, ensure_ascii=False)
+
+def _write(data):
+    """Atomic write: a crash in the middle can no longer corrupt the file."""
+    folder = os.path.dirname(os.path.abspath(DB_FILE))
+    os.makedirs(folder, exist_ok=True)
+    tmp = f"{DB_FILE}.tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
+    os.replace(tmp, DB_FILE)
+
+
+def init_db():
+    with _lock:
+        if not os.path.exists(DB_FILE):
+            _write(_empty_db())
 
 
 # =========================
 # LOAD / SAVE
 # =========================
 def load_data():
-    init_db()
-    with open(DB_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    with _lock:
+        init_db()
+        try:
+            with open(DB_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if not isinstance(data, dict):
+                raise ValueError("database root is not an object")
+        except (json.JSONDecodeError, ValueError, OSError) as exc:
+            # Keep the broken file for inspection instead of crashing every handler.
+            broken = f"{DB_FILE}.corrupt-{int(time.time())}"
+            try:
+                os.replace(DB_FILE, broken)
+            except OSError:
+                pass
+            print(f"⚠️ Database was unreadable ({exc}); saved as {broken}", flush=True)
+            data = _empty_db()
+            _write(data)
+
+        data.setdefault("users", {})
+        data.setdefault("total", len(data["users"]))
+        return data
 
 
 def save_data(data):
-    with open(DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
+    with _lock:
+        _write(data)
 
 
 # =========================
@@ -90,8 +126,8 @@ def increase_downloads(user_id, media_type="video"):
     uid = str(user_id)
 
     if uid in data["users"]:
-        data["users"][uid]["downloads"] += 1
-        
+        data["users"][uid]["downloads"] = data["users"][uid].get("downloads", 0) + 1
+
         if media_type == "video":
             data["users"][uid]["videos"] = data["users"][uid].get("videos", 0) + 1
         elif media_type == "audio":
