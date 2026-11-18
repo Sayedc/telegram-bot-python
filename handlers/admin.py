@@ -9,8 +9,10 @@ from config import SIGNATURE, DOWNLOADS_PATH
 from database.user_repository import (
     get_users,
     block_user,
-    unblock_user
+    unblock_user,
+    DB_FILE,
 )
+from services.common import cleanup_stale
 
 from core import metrics, rate_limiter, get_uptime
 from core import is_admin
@@ -86,7 +88,7 @@ async def broadcast_cmd(update, context):
             await context.bot.send_message(int(uid), msg)
             sent += 1
             await asyncio.sleep(0.05)
-        except:
+        except Exception:
             pass
 
     await update.message.reply_text(f"Sent to {sent} users")
@@ -116,16 +118,10 @@ async def clear_cmd(update, context):
     if not is_admin(update.effective_user.id):
         return
 
-    count = 0
+    # Entries younger than 10 minutes may belong to a download in progress.
+    count = cleanup_stale(DOWNLOADS_PATH, max_age=600)
 
-    for f in os.listdir(DOWNLOADS_PATH):
-        try:
-            os.remove(os.path.join(DOWNLOADS_PATH, f))
-            count += 1
-        except:
-            pass
-
-    await update.message.reply_text(f"Deleted {count} files")
+    await update.message.reply_text(f"Deleted {count} items (older than 10 min)")
 
 
 # ==========================
@@ -135,17 +131,14 @@ async def backup_cmd(update, context):
     if not is_admin(update.effective_user.id):
         return
 
-    backup_file = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    if not os.path.exists(DB_FILE):
+        await update.message.reply_text("No database file yet.")
+        return
 
-    with open("database.json", "rb") as src:
-        with open(backup_file, "wb") as dst:
-            dst.write(src.read())
+    backup_name = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
 
-    await update.message.reply_document(
-        document=open(backup_file, "rb")
-    )
-
-    os.remove(backup_file)
+    with open(DB_FILE, "rb") as src:
+        await update.message.reply_document(document=src, filename=backup_name)
 
 
 # ==========================
@@ -157,6 +150,10 @@ async def block_user_cmd(update, context):
 
     if not context.args:
         await update.message.reply_text("Usage: /block user_id")
+        return
+
+    if not context.args[0].isdigit():
+        await update.message.reply_text("user_id must be a number")
         return
 
     block_user(context.args[0])
@@ -171,6 +168,10 @@ async def unblock_user_cmd(update, context):
         await update.message.reply_text("Usage: /unblock user_id")
         return
 
+    if not context.args[0].isdigit():
+        await update.message.reply_text("user_id must be a number")
+        return
+
     unblock_user(context.args[0])
     await update.message.reply_text("User unblocked")
 
@@ -182,13 +183,20 @@ async def admin_metrics_cmd(update, context):
     if not is_admin(update.effective_user.id):
         return
 
+    summary = metrics.get_summary()
+
     await update.message.reply_text(
         f"""
 📊 SYSTEM METRICS
 
 Uptime: {get_uptime()}
+Downloads: {summary['total_downloads']}
+Success rate: {summary['success_rate']}%
+Avg download: {summary['avg_download']}s
+Top platform: {summary['top_platform']}
+Most common error: {summary['common_error']}
 
 ━━━━━━━━━━━━
 {SIGNATURE}
 """
-                                       )
+    )
