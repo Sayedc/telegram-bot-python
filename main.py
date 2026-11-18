@@ -1,6 +1,9 @@
+import asyncio
+import logging
 import os
 import sys
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 
 from telegram.ext import (
     Application,
@@ -33,7 +36,8 @@ from handlers.admin import (
 # ==========================
 # CONFIG
 # ==========================
-from config import BOT_TOKEN, DOWNLOADS_PATH, ADMIN_IDS
+from config import BOT_TOKEN, DOWNLOADS_PATH, ADMIN_IDS, LOGS_PATH
+from services.common import cleanup_stale
 
 # ==========================
 # CORE SYSTEM
@@ -41,9 +45,72 @@ from config import BOT_TOKEN, DOWNLOADS_PATH, ADMIN_IDS
 from core import metrics, rate_limiter, is_admin, get_uptime
 
 
-BOT_USERNAME = "@SK_Download_bot"
 SIGNATURE = "✨ ✨ 𝓐𝓵𝓱𝓪𝔀𝔂 ✨ ✨"
 START_TIME = datetime.now()
+
+
+def setup_logging():
+    """
+    Console logging + logs/errors.log (what the admin "سجل الأخطاء" button reads;
+    nothing used to write that file).
+    """
+    os.makedirs(LOGS_PATH, exist_ok=True)
+
+    formatter = logging.Formatter(
+        "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+    )
+
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+
+    console = logging.StreamHandler()
+    console.setFormatter(formatter)
+    root.addHandler(console)
+
+    file_handler = RotatingFileHandler(
+        os.path.join(LOGS_PATH, "errors.log"),
+        maxBytes=1_000_000,
+        backupCount=3,
+        encoding="utf-8",
+    )
+    file_handler.setLevel(logging.WARNING)
+    file_handler.setFormatter(formatter)
+    root.addHandler(file_handler)
+
+    # httpx logs every request URL at INFO level, and Telegram URLs contain the
+    # bot token -> it would end up in your Railway/Docker logs.
+    for noisy in ("httpx", "httpcore"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
+
+
+async def _periodic_cleanup():
+    """Remove leftovers of crashed/aborted downloads every 30 minutes."""
+    while True:
+        await asyncio.sleep(1800)
+        try:
+            removed = cleanup_stale(DOWNLOADS_PATH, max_age=3600)
+            if removed:
+                print(f"🧹 Removed {removed} stale download item(s)", flush=True)
+        except Exception as exc:  # noqa: BLE001
+            print(f"⚠️ Cleanup failed: {exc}", flush=True)
+
+
+async def post_init(app):
+    me = await app.bot.get_me()
+    print(f"🤖 BOT: @{me.username}", flush=True)
+
+    # Nothing is downloading yet, so everything left in downloads/ is garbage.
+    cleanup_stale(DOWNLOADS_PATH, max_age=0)
+
+    app.bot_data["cleanup_task"] = asyncio.get_running_loop().create_task(
+        _periodic_cleanup()
+    )
+
+
+async def post_shutdown(app):
+    task = app.bot_data.get("cleanup_task")
+    if task:
+        task.cancel()
 
 
 def validate_config():
@@ -65,12 +132,22 @@ def validate_config():
 def main():
     try:
         validate_config()
+        setup_logging()
 
         # Initialize the database before accepting updates.
         from database.user_repository import init_db
         init_db()
 
-        app = Application.builder().token(BOT_TOKEN.strip()).build()
+        # concurrent_updates: without it PTB handles ONE update at a time, so a
+        # single long download made the bot unresponsive for every other user.
+        app = (
+            Application.builder()
+            .token(BOT_TOKEN.strip())
+            .concurrent_updates(True)
+            .post_init(post_init)
+            .post_shutdown(post_shutdown)
+            .build()
+        )
 
         # USER
         app.add_handler(CommandHandler("start", start))
@@ -96,7 +173,6 @@ def main():
         app.add_error_handler(error_handler)
 
         print("=" * 50, flush=True)
-        print(f"🤖 BOT: {BOT_USERNAME}", flush=True)
         print(f"📁 DOWNLOADS_PATH: {os.path.abspath(DOWNLOADS_PATH)}", flush=True)
         print("🗄️ DATABASE: initialized", flush=True)
         print("🚀 STATUS: starting polling", flush=True)
