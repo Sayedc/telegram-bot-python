@@ -4,7 +4,8 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PIP_NO_CACHE_DIR=1
 ENV PATH="/usr/bin:${PATH}"
-ENV YTDLP_JS_RUNTIMES=node
+# NOTE: yt-dlp ignores a YTDLP_JS_RUNTIMES variable. Node is enabled from the
+# code (services/common.py -> js_runtimes()), which finds node/deno/bun on PATH.
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
