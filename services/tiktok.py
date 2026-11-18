@@ -10,6 +10,14 @@ from urllib.parse import urlsplit, urlunsplit
 
 import yt_dlp
 from config import DOWNLOADS_PATH
+from services.common import (
+    base_options,
+    failure_result,
+    find_output_file,
+    new_workdir,
+    prepare_cookies,
+    remove_path,
+)
 
 
 PHOTO_EXTENSIONS = {
@@ -167,90 +175,83 @@ async def download_tiktok(
 
         print("[TIKTOK DEBUG] Routing video/audio to yt-dlp")
 
-        os.makedirs(DOWNLOADS_PATH, exist_ok=True)
+        workdir = new_workdir(prefix="tiktok_")
 
-        opts = {
-            "outtmpl": os.path.join(
-                DOWNLOADS_PATH, "tiktok_%(id)s.%(ext)s"
-            ),
-            "quiet": True,
-            "no_warnings": True,
-            "noplaylist": True,
-            "restrictfilenames": True,
-            "overwrites": True,
-        }
+        try:
+            opts = base_options(workdir)
+            opts["outtmpl"] = os.path.join(workdir, "tiktok_%(id)s.%(ext)s")
 
-        cookie_candidates = (
-            os.path.join(os.getcwd(), "cookies.txt"),
-            "/app/cookies.txt",
-        )
+            cookie_file = prepare_cookies("tiktok", workdir)
+            if cookie_file:
+                opts["cookiefile"] = cookie_file
 
-        for cookie_path in cookie_candidates:
-            if os.path.isfile(cookie_path):
-                opts["cookiefile"] = cookie_path
-                break
+            if audio:
+                opts.update({
+                    "format": "bestaudio/best",
+                    "postprocessors": [{
+                        "key": "FFmpegExtractAudio",
+                        "preferredcodec": "mp3",
+                        "preferredquality": "192",
+                    }],
+                })
+            else:
+                try:
+                    max_height = max(144, min(int(quality), 4320))
+                except (TypeError, ValueError):
+                    max_height = 720
 
-        if audio:
-            opts.update({
-                "format": "bestaudio/best",
-                "postprocessors": [{
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "mp3",
-                    "preferredquality": "192",
-                }],
-            })
-        else:
-            try:
-                max_height = max(144, min(int(quality), 4320))
-            except (TypeError, ValueError):
-                max_height = 720
+                # res:<N> uses the shorter side, so vertical TikToks get the
+                # requested quality instead of one step lower.
+                opts["format"] = "best/bv*+ba"
+                opts["format_sort"] = [f"res:{max_height}", "ext:mp4"]
 
-            opts["format"] = f"best[height<={max_height}]/best"
+            def _extract():
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    info = ydl.extract_info(url, download=True)
 
-        def _extract():
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(url, download=True)
+                    if not info:
+                        raise RuntimeError(
+                            "TikTok لم يُرجع معلومات قابلة للتنزيل."
+                        )
 
-                if not info:
-                    raise RuntimeError(
-                        "TikTok لم يُرجع معلومات قابلة للتنزيل."
-                    )
+                    if info.get("entries"):
+                        entries = [e for e in info["entries"] if e]
+                        if not entries:
+                            raise RuntimeError("TikTok returned no entries.")
+                        info = entries[0]
 
-                prepared = ydl.prepare_filename(info)
+                    prepared = None
+                    for item in info.get("requested_downloads") or []:
+                        candidate = item.get("filepath") or item.get("_filename")
+                        if candidate and os.path.isfile(candidate):
+                            prepared = candidate
+                            break
 
-                if audio:
-                    prepared = str(Path(prepared).with_suffix(".mp3"))
+                    if audio and prepared and not prepared.lower().endswith(".mp3"):
+                        prepared = None  # pre-conversion stream; look for the mp3
 
-                if not os.path.isfile(prepared):
-                    candidates = sorted(
-                        Path(DOWNLOADS_PATH).glob(
-                            f"tiktok_{info.get('id', '')}.*"
-                        ),
-                        key=lambda p: p.stat().st_mtime,
-                        reverse=True,
-                    )
+                    if not prepared:
+                        prepared = find_output_file(
+                            workdir, ".mp3" if audio else None
+                        )
 
-                    if audio:
-                        candidates = [
-                            p for p in candidates
-                            if p.suffix.lower() == ".mp3"
-                        ]
+                    if not prepared or not os.path.isfile(prepared):
+                        raise FileNotFoundError(
+                            "التحميل انتهى لكن الملف الناتج غير موجود."
+                        )
 
-                    if candidates:
-                        prepared = str(candidates[0])
+                    return info, prepared
 
-                if not os.path.isfile(prepared):
-                    raise FileNotFoundError(
-                        "التحميل انتهى لكن الملف الناتج غير موجود."
-                    )
+            info, file_path = await asyncio.to_thread(_extract)
 
-                return info, prepared
-
-        info, file_path = await asyncio.to_thread(_extract)
+        except Exception:
+            remove_path(workdir)
+            raise
 
         return {
             "success": True,
             "file_path": file_path,
+            "workdir": workdir,
             "title": info.get("title") or "TikTok Video",
             "duration": info.get("duration") or 0,
             "platform": "TikTok",
@@ -259,11 +260,5 @@ async def download_tiktok(
         }
 
     except Exception as exc:
-        message = str(exc)
-        print(f"[TIKTOK ERROR] {type(exc).__name__}: {message[:500]}")
-
-        return {
-            "success": False,
-            "error": f"TikTok download failed: {message[:180]}",
-            "error_code": "DOWNLOAD_ERROR",
-        }
+        print(f"[TIKTOK ERROR] {type(exc).__name__}: {str(exc)[:500]}")
+        return failure_result("TikTok", exc)
