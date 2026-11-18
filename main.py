@@ -18,6 +18,7 @@ from telegram.ext import (
 # ==========================
 from handlers.start import start
 from handlers.message import handle_message
+from handlers.menu import help_cmd, quality_cmd, settings_cmd, mystats_cmd
 from handlers.callback import callback_handler
 from handlers.errors import error_handler
 
@@ -95,9 +96,63 @@ async def _periodic_cleanup():
             print(f"⚠️ Cleanup failed: {exc}", flush=True)
 
 
+USER_COMMANDS = [
+    ("start", "بدء الاستخدام"),
+    ("help", "طريقة الاستخدام"),
+    ("quality", "اختيار جودة التحميل"),
+    ("settings", "الإعدادات"),
+    ("mystats", "إحصائياتي"),
+]
+
+ADMIN_COMMANDS = [
+    ("stats", "إحصائيات البوت"),
+    ("top", "الأكثر نشاطاً"),
+    ("users", "قائمة المستخدمين"),
+    ("broadcast", "إعلان للجميع"),
+    ("block", "تقييد مستخدم"),
+    ("unblock", "رفع التقييد"),
+    ("clear", "تنظيف الملفات"),
+    ("backup", "نسخة احتياطية"),
+    ("metrics", "مقاييس الأداء"),
+]
+
+BOT_SHORT_DESCRIPTION = "حمّل الفيديو والصوت من YouTube وTikTok وInstagram وFacebook وغيرها بجودة عالية."
+BOT_DESCRIPTION = (
+    "Alhawy Downloader\n\n"
+    "حمّل الفيديو والصوت من YouTube وTikTok وInstagram وFacebook وغيرها بجودة عالية.\n"
+    "أرسل الرابط وسيصلك الملف خلال لحظات.\n\n"
+    "اضغط «ابدأ» للبدء."
+)
+
+
+async def setup_bot_profile(app):
+    """قائمة الأوامر ونبذة البوت. أي فشل هنا مش مفروض يوقف التشغيل."""
+    from telegram import BotCommand, BotCommandScopeChat
+
+    user_cmds = [BotCommand(c, d) for c, d in USER_COMMANDS]
+    admin_cmds = user_cmds + [BotCommand(c, d) for c, d in ADMIN_COMMANDS]
+
+    async def attempt(label, coro):
+        try:
+            await coro
+        except Exception as exc:  # noqa: BLE001
+            print(f"⚠️ {label} failed: {exc}", flush=True)
+
+    await attempt("set_my_commands", app.bot.set_my_commands(user_cmds))
+    for admin_id in ADMIN_IDS:
+        await attempt(
+            f"admin commands ({admin_id})",
+            app.bot.set_my_commands(admin_cmds, scope=BotCommandScopeChat(admin_id)),
+        )
+    await attempt("short description", app.bot.set_my_short_description(BOT_SHORT_DESCRIPTION))
+    await attempt("description", app.bot.set_my_description(BOT_DESCRIPTION))
+
+
 async def post_init(app):
     me = await app.bot.get_me()
     print(f"🤖 BOT: @{me.username}", flush=True)
+
+    await setup_bot_profile(app)
 
     # Nothing is downloading yet, so everything left in downloads/ is garbage.
     cleanup_stale(DOWNLOADS_PATH, max_age=0)
@@ -151,6 +206,10 @@ def main():
 
         # USER
         app.add_handler(CommandHandler("start", start))
+        app.add_handler(CommandHandler("help", help_cmd))
+        app.add_handler(CommandHandler("quality", quality_cmd))
+        app.add_handler(CommandHandler("settings", settings_cmd))
+        app.add_handler(CommandHandler("mystats", mystats_cmd))
         app.add_handler(
             MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
         )

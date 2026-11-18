@@ -1,66 +1,37 @@
-## Telegram Python Bot
+# Alhawy Downloader — Telegram video/audio downloader bot
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/a0ln90?referralCode=CREDITS&utm_medium=integration&utm_source=template&utm_campaign=generic)
+بوت تيليجرام بيحمّل فيديو وصوت من يوتيوب، تيك توك، انستجرام، فيسبوك، تويتر وأي موقع يدعمه `yt-dlp`.
 
-## Overview
-
-This project is a simple Telegram bot built using the telebot library. It demonstrates the basic structure of a Telegram bot and uses uv for dependency management. The bot responds to commands and messages, and can be easily extended with additional functionality.
-
-## Key Features
-
-- Minimal Telegram bot application
-- Responds to '/start' and '/hello' commands
-- Echoes all other messages
-- Uses telebot for bot functionality
-- Uses uv for dependency management
-- Easy to understand and extend
-
-## Setup
+## التشغيل المحلي
 
 ```bash
-pip install uv
-uv sync
+pip install -r requirements.txt
+cp .env.example .env      # وعدّل BOT_TOKEN و ADMIN_IDS
+python main.py
 ```
 
-## Develop
+محتاج على الجهاز: **FFmpeg** و **Node.js (أو Deno)**. يوتيوب بيطلب JavaScript runtime
+عشان يحل التحدي بتاعه؛ من غيره التحميل بيفشل برسالة `No video formats found`.
 
-To run the bot locally:
+## المتغيرات (Environment Variables)
 
-```bash
-uv run python -B main.py
-```
+| المتغير | مطلوب | الوصف |
+|---|---|---|
+| `BOT_TOKEN` | ✅ | توكن البوت من @BotFather |
+| `ADMIN_IDS` | ✅ | IDs الأدمن مفصولة بفاصلة |
+| `DATABASE_PATH` | ❌ | مسار ملف المستخدمين. على Railway/Docker حطه على Volume (مثلاً `/data/database.json`) وإلا بيتمسح مع كل نشر |
+| `YOUTUBE_COOKIES` / `INSTAGRAM_COOKIES` / `FACEBOOK_COOKIES` / `TIKTOK_COOKIES` | ❌ | محتوى ملف cookies.txt (Netscape) كامل |
+| `PROXY` | ❌ | بروكسي لو الـ IP بتاع السيرفر محظور |
+| `DOWNLOAD_TIMEOUT` | ❌ | أقصى وقت لتحميل واحد بالثواني (الافتراضي 900) |
 
-Make sure to set up your `.env` file with your Telegram bot token:
+> **الكوكيز والتوكن مبيتحطوش في الريبو أبداً.** استخدم متغيرات البيئة. الملفات `cookies*.txt` و `.env` متجاهلة في `.gitignore`.
 
-```bash
-TELEGRAM_BOT_TOKEN=your_token_here
-```
+## النشر على Railway
 
-## Deploy
+استخدم الـ `Dockerfile` (فيه FFmpeg و Node). أضف المتغيرات من تبويب Variables، وأضف Volume لو عايز المستخدمين يفضلوا بعد كل نشر.
 
-Initialize your project:
+يوتيوب بيغيّر حماية كل كام أسبوع، فلو بدأ التحميل يفشل: اعمل Redeploy عشان يتثبّت أحدث `yt-dlp`.
 
-```bash
-railway init
-```
+## أوامر الأدمن
 
-To deploy the bot on Railway:
-
-```bash
-railway up
-```
-
-Remember to set the `TELEGRAM_BOT_TOKEN` environment variable in your Railway project settings.TELEGRAM_BOT_TOKEN
-
-## Test
-
-Open Telegram, start a chat with your bot, and try the commands `/start` or `/hello`. The bot will also echo any other messages you send.
-
-## Learn More
-
-- [Telebot Documentation](https://pypi.org/project/pyTelegramBotAPI/)
-- [uv Documentation](https://docs.astral.sh/uv/)
-- [Telegram Bot API](https://core.telegram.org/bots/api)
-- [Railway Documentation](https://docs.railway.app/)
-- [Telegram Python Bot Repository](https://github.com/aeither/telegram-bot-python/)
-- [Railway Marketplace](https://railway.app/template/a0ln90)
+`/stats` `/top` `/users` `/broadcast <نص>` `/block <id>` `/unblock <id>` `/clear` `/backup` `/metrics`
