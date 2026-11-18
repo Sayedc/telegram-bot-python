@@ -3,17 +3,25 @@ import os
 import shutil
 from datetime import datetime
 
-from config import SIGNATURE
+from config import SIGNATURE, MAX_CONCURRENT_DOWNLOADS
 from core import metrics
 from utils.helpers import extract_link, get_platform
 from utils.messages import get_random_processing_text, get_random_success_text, get_random_error_text
+from utils.admin_notify import notify_admins
 from database.user_repository import increase_downloads
+from security import is_safe_url
+from services.common import remove_path
 from services.tiktok import download_tiktok
 from services.youtube import download_youtube
 from services.facebook import download_facebook
 from services.instagram import download_instagram
+from services.generic import download_generic
 
 MAX_UPLOAD_SIZE = 49 * 1024 * 1024
+
+# Only N downloads/compressions run at once; everybody else waits in a queue
+# instead of exhausting the server's CPU, RAM and disk.
+DOWNLOAD_SEMAPHORE = asyncio.Semaphore(MAX_CONCURRENT_DOWNLOADS)
 
 
 def get_file_size_mb(path):
@@ -127,59 +135,82 @@ async def handle_download(update, context):
         await message.reply_text("❌ أرسل رابط صحيح")
         return
 
+    safe, reason = await asyncio.to_thread(is_safe_url, url)
+    if not safe:
+        print(f"🚫 Rejected URL from {user.id}: {reason}", flush=True)
+        await message.reply_text("❌ الرابط غير صحيح أو غير مسموح.")
+        return
+
     platform = get_platform(url)
     quality = context.user_data.get("quality", "720")
     audio = context.user_data.get("audio", False)
     status = await message.reply_text(f"{get_random_processing_text()}\n📱 {platform}")
     started = datetime.now()
+    result = None
     file_path = final_path = None
 
     try:
-        if platform == "TikTok":
-            result = await download_tiktok(url, quality, audio)
-        elif platform == "YouTube":
-            result = await download_youtube(url, quality, audio)
-        elif platform == "Facebook":
-            result = await download_facebook(url, quality, audio)
-        elif platform == "Instagram":
-            result = await download_instagram(url, quality, audio)
-        else:
-            result = await download_youtube(url, quality, audio)
-
-        if not result or not result.get("success"):
-            await status.edit_text(f"❌ {(result or {}).get('error', 'Unknown error')}")
-            return
-
-        file_path = result.get("file_path")
-        title = result.get("title") or "Media"
-        media_type = result.get("media_type") or ("audio" if audio else "video")
-        if not file_path or not os.path.isfile(file_path):
-            await status.edit_text("❌ الملف لم يتم العثور عليه بعد التحميل.")
-            return
-
-        size = get_file_size_mb(file_path)
-        limit = MAX_UPLOAD_SIZE / (1024 * 1024)
-        print(f"📦 Downloaded file: {size:.2f} MB; type={media_type}")
-
-        # TikTok Photo Mode returns a ZIP/document. Do not send it through FFmpeg.
-        if media_type == "document":
-            if size > limit:
-                await status.edit_text("❌ ملف صور المنشور أكبر من حد الإرسال (49 MB).")
-                return
-            final_path = file_path
-        elif size > limit:
+        if DOWNLOAD_SEMAPHORE.locked():
             try:
-                if media_type == "audio" or audio:
-                    final_path = await compress_audio_if_needed(file_path, status)
-                else:
-                    final_path = await compress_until_small_enough(file_path, status)
-            except Exception as exc:
-                print(f"❌ Compression error: {exc}")
-                await status.edit_text("❌ الملف كبير جدًا حتى بعد محاولة ضغطه. جرّب جودة أقل مثل 480p أو 360p.")
-                return
-        else:
-            final_path = file_path
+                await status.edit_text("⏳ في طابور انتظار... هبدأ أول ما يخلص تحميل سابق.")
+            except Exception:
+                pass
 
+        async with DOWNLOAD_SEMAPHORE:
+            if platform == "TikTok":
+                result = await download_tiktok(url, quality, audio)
+            elif platform == "YouTube":
+                result = await download_youtube(url, quality, audio)
+            elif platform == "Facebook":
+                result = await download_facebook(url, quality, audio)
+            elif platform == "Instagram":
+                result = await download_instagram(url, quality, audio)
+            else:
+                result = await download_generic(url, quality, audio, platform)
+
+            if not result or not result.get("success"):
+                error = (result or {}).get("error", "Unknown error")
+                code = (result or {}).get("error_code")
+                metrics.record_error(code or "UNKNOWN", user.id)
+                await status.edit_text(f"❌ {error}")
+                await notify_admins(
+                    context.bot, user.id, url, platform, code,
+                    (result or {}).get("details") or error,
+                )
+                return
+
+            file_path = result.get("file_path")
+            title = result.get("title") or "Media"
+            media_type = result.get("media_type") or ("audio" if audio else "video")
+            if not file_path or not os.path.isfile(file_path):
+                metrics.record_error("FILE_NOT_FOUND", user.id)
+                await status.edit_text("❌ الملف لم يتم العثور عليه بعد التحميل.")
+                return
+
+            size = get_file_size_mb(file_path)
+            limit = MAX_UPLOAD_SIZE / (1024 * 1024)
+            print(f"📦 Downloaded file: {size:.2f} MB; type={media_type}", flush=True)
+
+            # TikTok Photo Mode returns a ZIP/document. Do not send it through FFmpeg.
+            if media_type == "document":
+                if size > limit:
+                    await status.edit_text("❌ ملف صور المنشور أكبر من حد الإرسال (49 MB).")
+                    return
+                final_path = file_path
+            elif size > limit:
+                try:
+                    if media_type == "audio" or audio:
+                        final_path = await compress_audio_if_needed(file_path, status)
+                    else:
+                        final_path = await compress_until_small_enough(file_path, status)
+                except Exception as exc:
+                    print(f"❌ Compression error: {exc}", flush=True)
+                    await status.edit_text("❌ الملف كبير جدًا حتى بعد محاولة ضغطه. جرّب جودة أقل مثل 480p أو 360p.")
+                    return
+            else:
+                final_path = file_path
+
+        # The semaphore is released here: uploading does not need a slot.
         if not final_path or not os.path.isfile(final_path):
             await status.edit_text("❌ تعذر تجهيز الملف للإرسال.")
             return
@@ -201,22 +232,27 @@ async def handle_download(update, context):
             with open(final_path, "rb") as f:
                 await message.reply_audio(audio=f, title=title[:80], caption=success_caption, **timeouts)
         else:
+            duration = result.get("duration") or 0
+            extra = {"duration": int(duration)} if duration else {}
             with open(final_path, "rb") as f:
                 await message.reply_video(video=f,
                     caption=f"🎬 {title[:80]}\n📦 {final_size:.2f} MB\n🎥 الجودة: {quality}p\n📱 {platform}\n\n{SIGNATURE}",
-                    supports_streaming=True, **timeouts)
+                    supports_streaming=True, **extra, **timeouts)
 
-        increase_downloads(user.id)
+        increase_downloads(user.id, "audio" if (media_type == "audio" or audio) else "video")
         metrics.record_download((datetime.now() - started).total_seconds(), platform, user.id)
         try: await status.delete()
         except Exception: pass
-        print(f"✅ Upload completed successfully for user {user.id}")
+        print(f"✅ Upload completed successfully for user {user.id}", flush=True)
     except Exception as exc:
-        print(f"❌ HANDLE DOWNLOAD ERROR: {exc}")
-        try: await status.edit_text(f"❌ {get_random_error_text()}\n\n{str(exc)[:300]}", parse_mode=None)
+        print(f"❌ HANDLE DOWNLOAD ERROR: {type(exc).__name__}: {exc}", flush=True)
+        metrics.record_error("EXCEPTION", user.id)
+        try: await status.edit_text(f"❌ {get_random_error_text()}", parse_mode=None)
         except Exception: pass
+        await notify_admins(context.bot, user.id, url, platform, "EXCEPTION",
+                            f"{type(exc).__name__}: {exc}")
     finally:
+        # The per-request work directory also holds compressed copies.
+        remove_path((result or {}).get("workdir"))
         for path in {p for p in (final_path, file_path) if p}:
-            try:
-                if os.path.isfile(path): os.remove(path)
-            except OSError: pass
+            remove_path(path)
