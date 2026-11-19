@@ -1,0 +1,16 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+downloads/
+logs/
+*.db
+*.json
+
+# Secrets - never commit these. Use environment variables instead.
+cookies*.txt
+Instagram.txt
+instagram.txt
+*.corrupt-*
+backup_*.json
+ 
