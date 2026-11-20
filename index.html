@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SK Downloader</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.container {
+    text-align: center;
+    background: #111827;
+    padding: 30px;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 400px;
+}
+
+h1 {
+    margin-bottom: 20px;
+}
+
+input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    margin-bottom: 15px;
+}
+
+button {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    background: #22c55e;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.progress {
+    margin-top: 15px;
+    height: 8px;
+    background: #374151;
+    border-radius: 10px;
+    overflow: hidden;
+    display: none;
+}
+
+.progress-bar {
+    height: 100%;
+    width: 0%;
+    background: #22c55e;
+    transition: 0.3s;
+}
+
+.result {
+    margin-top: 15px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+    <h1>🔥 SK Downloader</h1>
+
+    <input id="url" placeholder="حط اللينك هنا">
+
+    <button onclick="startDownload()">تحميل</button>
+
+    <div class="progress" id="progress">
+        <div class="progress-bar" id="bar"></div>
+    </div>
+
+    <div class="result" id="result"></div>
+</div>
+
+<script>
+function startDownload() {
+    let url = document.getElementById("url").value;
+    let bar = document.getElementById("bar");
+    let progress = document.getElementById("progress");
+
+    progress.style.display = "block";
+    bar.style.width = "0%";
+
+    let fakeProgress = 0;
+
+    let interval = setInterval(() => {
+        fakeProgress += 10;
+        bar.style.width = fakeProgress + "%";
+        if (fakeProgress >= 90) clearInterval(interval);
+    }, 300);
+
+    fetch(`/download?url=${encodeURIComponent(url)}`)
+    .then(res => res.json())
+    .then(data => {
+        bar.style.width = "100%";
+
+        if (data.status === "done") {
+            document.getElementById("result").innerHTML =
+                "✅ تم التحميل 🎉<br><br><b>📂 الملف على السيرفر</b>";
+        } else {
+            document.getElementById("result").innerHTML =
+                "❌ حصل خطأ";
+        }
+    });
+}
+</script>
+
+</body>
+</html>
